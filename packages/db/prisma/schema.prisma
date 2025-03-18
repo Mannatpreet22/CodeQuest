@@ -37,7 +37,6 @@ model Question {
   testcases       TestCase[]
   examples        Example[]
   templateCodes   TemplateCode[]
-  editorials      Editorial[]
   submissions     Submission[]
 }
 
@@ -77,16 +76,6 @@ model TemplateCode {
   programmingLanguage ProgrammingLanguage @relation(fields: [programmingLanguageId], references: [id])
 }
 
-model Editorial {
-  id         Int     @id @default(autoincrement())
-  content    String   // Markdown or text of editorial
-  
-  // Foreign key
-  questionId Int
-  
-  // Relations
-  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-}
 
 model Submission {
   id                  Int                 @id @default(autoincrement())
