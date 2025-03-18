@@ -12,3 +12,110 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+// // clerk
+model User {
+  id           Int          @id @default(autoincrement())
+  username     String       @unique
+  email        String       @unique
+  passwordHash String       // Store a secure hash of the password
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  
+  // Relations
+  submissions  Submission[] // A user can make many submissions
+}
+
+
+model Question {
+  id         Int         @id @default(autoincrement())
+  title      String
+  body       String       // Full description / markdown
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  
+  // Relations
+  testcases       TestCase[]
+  examples        Example[]
+  templateCodes   TemplateCode[]
+  editorials      Editorial[]
+  submissions     Submission[]
+}
+
+model TestCase {
+  id             Int     @id @default(autoincrement())
+  inputData      String
+  expectedOutput String
+  
+  // Foreign key
+  questionId Int
+  
+  // Relations
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model Example {
+  id          Int    @id @default(autoincrement())
+  inputData   String
+  outputData  String
+  explanation String?
+  
+  // Foreign key
+  questionId  Int
+  
+  // Relations
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model TemplateCode {
+  id                  Int                 @id @default(autoincrement())
+  driverCode          String
+  questionId          Int
+  programmingLanguageId Int
+  
+  // Relations
+  question            Question            @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  programmingLanguage ProgrammingLanguage @relation(fields: [programmingLanguageId], references: [id])
+}
+
+model Editorial {
+  id         Int     @id @default(autoincrement())
+  content    String   // Markdown or text of editorial
+  
+  // Foreign key
+  questionId Int
+  
+  // Relations
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model Submission {
+  id                  Int                 @id @default(autoincrement())
+  codeText            String
+  status              String              // e.g., "PENDING", "AC", "WA", "TLE"
+  runtime             Int?                // in milliseconds
+  memoryUsed          Int?                // in kilobytes
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  
+  // Foreign keys
+  userId              Int
+  questionId          Int
+  programmingLanguageId Int
+  
+  // Relations
+  user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question            Question            @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  programmingLanguage ProgrammingLanguage @relation(fields: [programmingLanguageId], references: [id])
+}
+
+model ProgrammingLanguage {
+  id         Int           @id @default(autoincrement())
+  name       String
+  version    String?
+  compileCmd String?        // e.g., "g++ main.cpp -o main"
+  runCmd     String?        // e.g., "./main"
+  
+  // Relations
+  submissions   Submission[]
+  templateCodes TemplateCode[]
+}
