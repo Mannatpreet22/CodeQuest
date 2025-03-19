@@ -1,6 +1,6 @@
 import {Request, Response, Router} from 'express'
 
-const questionsRouter = Router()
+export const questionsRouter = Router()
 
 questionsRouter.get('/all-questions',(req : Request, res : Response)=> {
 
