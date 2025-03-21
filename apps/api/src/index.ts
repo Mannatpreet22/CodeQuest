@@ -1,5 +1,9 @@
 import express from 'express'
 import cors from 'cors'
+import { userRouter } from './routes/userRouter'
+import { questionsRouter } from './routes/questionsRouter'
+import { submitRouter } from './routes/submitRouter'
+
 const app = express()
 
 const PORT  = 3000
@@ -7,6 +11,7 @@ const PORT  = 3000
 app.use(express.json())
 
 app.use(cors())
+
 
 app.use('/api/v1/user', userRouter)
 app.use('/api/v1/questions', questionsRouter)
