@@ -102,24 +102,38 @@ class FullDriverCodeGenerator {
 
     }
 
-    mapTypeToCppType(type : string) {
-        switch(type) {
-            case 'int':
-                return 'int'
-            case 'string':
-                return 'string'
-            case 'double':
-                return 'double'
-            case 'bool':
-                return 'bool'
-            case 'char':
-                return 'char'
-            case 'list':
-                return 'vector'
-            case 'map':
-                return 'map'
-            default:
-                return 'string'
+    private mapTypeToCppType(type: string): string {
+        if (type.startsWith('list')) {
+            const innerType = type.replace('list', '').trim() || 'int'
+            return `vector<${this.mapTypeToCppType(innerType)}>`
+        }
+        else if(type.startsWith('map')) {
+            const innerType = type.replace('map', '').trim() || 'int'
+            return `map<${this.mapTypeToCppType(innerType)}>`
+        }
+        else if(type.startsWith('set')) {
+            const innerType = type.replace('set', '').trim() || 'int'
+            return `set<${this.mapTypeToCppType(innerType)}>`
+        }
+        else if(type.startsWith('tuple')) {
+            const innerType = type.replace('tuple', '').trim() || 'int'
+            return `tuple<${this.mapTypeToCppType(innerType)}>`
+        }
+        else {
+            switch(type) {
+                case 'string':
+                    return 'string'
+                case 'int':
+                    return 'int'
+                case 'bool':
+                    return 'bool'
+                case 'float':
+                    return 'float'
+                case 'double':
+                    return 'double'
+                default:
+                    return 'int'
+            }
         }
     }
 }
