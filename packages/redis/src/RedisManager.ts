@@ -23,13 +23,13 @@ export class RedisManager {
 
     sendAndAwait(message: IncomingMessage) {
         return new Promise<ResponseData>((res, rej) => {
-            const id: string = this.generateUniqueId()
-            this.client.subscribe(id, (message: any) => {
-                this.client.unsubscribe(id)
+            const submissionId: string = this.generateUniqueId()
+            this.client.subscribe(submissionId, (message: any) => {
+                this.client.unsubscribe(submissionId)
                 res(JSON.parse(message))
             })
 
-            this.publisher.lPush('messages', JSON.stringify({ clientId: id, message }))
+            this.publisher.lPush('messages', JSON.stringify({ ...message, submissionId }))
         })
     }
 
