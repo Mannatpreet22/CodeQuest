@@ -1,7 +1,7 @@
 export type questionSubmission = {
-    id: number,
-    userId: string,
-    problemId : string,
-    code: string,
-    language: string
+    submissionId :string
+    problemId : string
+    userId : string
+    code : string
+    lang : string
 }

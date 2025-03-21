@@ -10,12 +10,13 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@repo/commons": "*",
+    "@repo/db": "*",
+    "@repo/redis": "*",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "cors": "^2.8.5",
     "express": "^4.21.2",
-    "@repo/db" : "*",
-    "@repo/redis" : "*",
-    "@repo/commons" : "*"
+    "express-rate-limit": "^7.5.0"
   }
 }
