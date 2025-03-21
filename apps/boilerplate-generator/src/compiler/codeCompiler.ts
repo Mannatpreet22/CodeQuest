@@ -12,7 +12,6 @@ Output Field:
 */
 
 import fs from 'fs'
-
 const FILE_PATH = '../Structure.md'
 
 export class TemplateCompiler {
@@ -65,15 +64,15 @@ export class TemplateCompiler {
         })
     }
 
-    parseLines(file : string) {
+    private parseLines(file : string) {
         return file.split('\n').map(line => line.trim()) 
     }
 
-    getValue(line: string, remove : string) {
+    private getValue(line: string, remove : string) {
         return line.replace(remove,'').trim()
     }
 
-    getField(line: string, value : string) : {type : string, varName : string} | null {
+    private getField(line: string, value : string) : {type : string, varName : string} | null {
         const match: string = line.replace(value, '').trim()
         const found = match.split(' ')
         if (!found[0] || !found[1]) return null
