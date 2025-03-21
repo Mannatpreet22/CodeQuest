@@ -1,5 +1,5 @@
 {
-  "name": "api",
+  "name": "@repo/commons",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -10,12 +10,9 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@types/cors": "^2.8.17",
-    "@types/express": "^5.0.0",
-    "cors": "^2.8.5",
-    "express": "^4.21.2",
-    "@repo/db" : "*",
-    "@repo/redis" : "*",
-    "@repo/commons" : "*"
+    "zod": "^3.24.2"
+  },
+  "exports" : {
+    "./types": "./src/types.ts"
   }
 }
