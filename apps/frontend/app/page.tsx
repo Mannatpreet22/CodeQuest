@@ -16,9 +16,8 @@ const ThemeImage = (props: Props) => {
 
 export default function Page() {
   return (
-    <main>
-      <ThemeImage srcLight="/light.png" srcDark="/dark.png" alt="Theme image" />
-      hi there!
+    <main className="flex flex-col items-center justify-center">
+      Hi there!
     </main>
   );
 }
