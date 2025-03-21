@@ -3,13 +3,18 @@ import cors from 'cors'
 import { userRouter } from './routes/userRouter'
 import { questionsRouter } from './routes/questionsRouter'
 import { submitRouter } from './routes/submitRouter'
-
+import { ClerkExpressWithAuth } from '@clerk/clerk-sdk-node'
 const app = express()
 
 const PORT  = 3000
 
 app.use(express.json())
-
+app.use(
+    ClerkExpressWithAuth({
+      secretKey: process.env.CLERK_SECRET_KEY,
+    })
+  );
+  
 app.use(cors())
 
 
