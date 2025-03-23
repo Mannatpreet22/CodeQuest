@@ -1,16 +1,8 @@
 {
-<<<<<<< HEAD
-  "extends": "@repo/typescript-config/react-library.json",
-=======
   "extends": "@repo/typescript-config/base.json",
->>>>>>> 42e1360 (fixing+testing manager)
   "compilerOptions": {
     "outDir": "dist"
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 42e1360 (fixing+testing manager)

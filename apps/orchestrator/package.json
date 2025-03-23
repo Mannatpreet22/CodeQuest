@@ -8,9 +8,6 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-<<<<<<< HEAD
-  "description": ""
-=======
   "description": "",
   "dependencies": {
     "@kubernetes/client-node": "^1.1.0",
@@ -18,5 +15,4 @@
     "@repo/typescript-config": "*",
     "express": "^4.21.2"
   }
->>>>>>> 42e1360 (fixing+testing manager)
 }
