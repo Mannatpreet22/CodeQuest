@@ -1,3 +1,4 @@
+
 /*
  This file is for generating the full driver code for the problem.
  
@@ -106,7 +107,7 @@ class FullDriverCodeGenerator {
         return `
         #include <iostream>
         #include <vector>
-        #include <map>
+        #include <unordered_map>
         #include <set>
         using namespace std;
         ${this.outputField[0]?.type} ${this.funcName}(${inputs}) { \n   // your code goes here    return result}
