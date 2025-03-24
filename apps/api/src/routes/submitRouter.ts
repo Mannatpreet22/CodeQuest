@@ -62,3 +62,7 @@ submitRouter.post('/submit',async (req : Request, res : Response)=> {
         })
     }
 })
+
+submitRouter.post('/all-submissions',(req : Request, res: Response)=> {
+    
+})
