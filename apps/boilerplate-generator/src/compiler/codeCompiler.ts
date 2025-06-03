@@ -12,7 +12,9 @@ Output Field:
 */
 
 import fs from 'fs'
-const FILE_PATH = '../Structure.md'
+import path from 'path'
+
+const FILE_PATH = path.join(__dirname, '../../Structure.md')
 
 export class TemplateCompiler {
     problemName : string = ''
@@ -36,12 +38,12 @@ export class TemplateCompiler {
         }
 
         const lines = this.parseLines(file)
-        lines.map((line :string) => {
+        lines.forEach((line :string) => {
             if(line.startsWith('Problem name:')) {
                 this.problemName = line.replace('Problem name:', '').trim()
             }
             else if(line.startsWith('Function name:')) {
-                this.funcName = line.replace('Function Name:','').trim()
+                this.funcName = line.replace('Function name:', '').trim()
             }
             else if(line.startsWith('Input Structure:')) {
                 currentSection = 'input'
@@ -68,9 +70,6 @@ export class TemplateCompiler {
         return file.split('\n').map(line => line.trim()) 
     }
 
-    private getValue(line: string, remove : string) {
-        return line.replace(remove,'').trim()
-    }
 
     private getField(line: string, value : string) : {type : string, varName : string} | null {
         const match: string = line.replace(value, '').trim()
@@ -86,24 +85,30 @@ export class TemplateCompiler {
         const inputs = this.inputField.length === 1 && this.inputField[0]
             ? `${this.mapTypeToCppType(this.inputField[0].type)} ${this.inputField[0].varName}` 
             : this.inputField.map(field => `${this.mapTypeToCppType(field.type)} ${field.varName}`).join(', ')
-        return `${this.mapTypeToCppType(this.outputField[0]?.type || 'int')} ${this.funcName}(${inputs}) {\n    // your code goes here\n    return result;\n}`
+        return `${this.mapTypeToCppType(this.outputField[0]?.type || 'int')} ${this.funcName}(${inputs}) {\n    // your code goes here\n\n    return result;\n}`
     }
 
     private mapTypeToCppType(type: string): string {
-        if (type.startsWith('list')) {
-            const innerType = type.replace('list', '').trim() || 'int'
+        if(type.startsWith('vector<')) {
+            // vector<int>
+            const innerType = type.replace('vector<', '').replace('>','').trim() || 'int'
             return `vector<${this.mapTypeToCppType(innerType)}>`
         }
-        else if(type.startsWith('map')) {
-            const innerType = type.replace('map', '').trim() || 'int'
-            return `map<${this.mapTypeToCppType(innerType)}>`
+        else if(type.startsWith('list<')) {
+            // list<int>
+            const innerType = type.replace('list<', '').replace('>','').trim() || 'int'
+            return `vector<${this.mapTypeToCppType(innerType)}>`
         }
-        else if(type.startsWith('set')) {
-            const innerType = type.replace('set', '').trim() || 'int'
+        else if(type.startsWith('map<')) {
+            const innerType = type.replace('map<', '').replace('>','').trim() || 'int'
+            return `unordered_map<${this.mapTypeToCppType(innerType)}>`
+        }
+        else if(type.startsWith('set<')) {
+            const innerType = type.replace('set<', '').replace('>','').trim() || 'int'
             return `set<${this.mapTypeToCppType(innerType)}>`
         }
-        else if(type.startsWith('tuple')) {
-            const innerType = type.replace('tuple', '').trim() || 'int'
+        else if(type.startsWith('tuple<')) {
+            const innerType = type.replace('tuple<', '').replace('>','').trim() || 'int'
             return `tuple<${this.mapTypeToCppType(innerType)}>`
         }
         else {
@@ -127,12 +132,12 @@ export class TemplateCompiler {
     generatePythonTemplate() {
         const inputs = this.inputField.length === 1 && this.inputField[0]
             ? `${this.inputField[0].varName}` : this.inputField.map(field => `${field.varName}`).join(', ')
-        return `def ${this.funcName}(${inputs}):\n    # your code goes here\n    return result`
+        return `def ${this.funcName}(${inputs}):\n    # your code goes here\n\n    return result`
     }
 
     generateJSTemplate() {
         const inputs = this.inputField.length === 1 && this.inputField[0]
             ? `${this.inputField[0].varName}` : this.inputField.map(field => `${field.varName}`).join(', ')
-        return `function ${this.funcName}(${inputs}) {\n    // your code goes here\n    return result\n}`
+        return `function ${this.funcName}(${inputs}) {\n    // your code goes here\n\n    return result\n}`
     }
 }

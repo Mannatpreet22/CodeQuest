@@ -14,7 +14,7 @@ datasource db {
 }
 // // clerk
 model User {
-  id           Int          @id @default(autoincrement())
+  id           String       @id @default(uuid())
   username     String       @unique
   email        String       @unique
   passwordHash String       // Store a secure hash of the password
@@ -27,7 +27,7 @@ model User {
 
 
 model Question {
-  id         Int         @id @default(autoincrement())
+  id         String       @id @default(uuid())
   title      String
   body       String       // Full description / markdown
   createdAt  DateTime     @default(now())
@@ -46,7 +46,7 @@ model TestCase {
   expectedOutput String
   
   // Foreign key
-  questionId Int
+  questionId String
   
   // Relations
   question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
@@ -59,17 +59,17 @@ model Example {
   explanation String?
   
   // Foreign key
-  questionId  Int
+  questionId  String
   
   // Relations
   question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 }
 
 model TemplateCode {
-  id                  Int                 @id @default(autoincrement())
-  driverCode          String
-  questionId          Int
-  programmingLanguageId Int
+  id                    String               @id @default(uuid())
+  driverCode            String
+  questionId            String
+  programmingLanguageId String
   
   // Relations
   question            Question            @relation(fields: [questionId], references: [id], onDelete: Cascade)
@@ -78,7 +78,7 @@ model TemplateCode {
 
 
 model Submission {
-  id                  Int                 @id @default(autoincrement())
+  id                  String               @id @default(uuid())
   codeText            String
   status              String              // e.g., "PENDING", "AC", "WA", "TLE"
   runtime             Int?                // in milliseconds
@@ -87,9 +87,9 @@ model Submission {
   updatedAt           DateTime            @updatedAt
   
   // Foreign keys
-  userId              Int
-  questionId          Int
-  programmingLanguageId Int
+  userId                String
+  questionId            String
+  programmingLanguageId String
   
   // Relations
   user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -98,7 +98,7 @@ model Submission {
 }
 
 model ProgrammingLanguage {
-  id         Int           @id @default(autoincrement())
+  id         String               @id @default(uuid())
   name       String
   version    String?
   compileCmd String?        // e.g., "g++ main.cpp -o main"

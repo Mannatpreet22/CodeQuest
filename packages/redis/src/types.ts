@@ -1,9 +1,13 @@
+// submissionId :string
+//     problemId : string
+//     userId : string
+//     code : string
+//     language : string
 export type IncomingMessage = {
-    id: number,
     userId: string,
     problemId : string,
     code: string,
-    language: string
+    lang: string
 }
 
 export type ResponseData = {

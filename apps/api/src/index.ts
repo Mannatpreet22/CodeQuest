@@ -1,4 +1,4 @@
-import express from 'express'
+import express, { Request, Response } from 'express'
 import cors from 'cors'
 import { userRouter } from './routes/userRouter'
 import { questionsRouter } from './routes/questionsRouter'
@@ -22,6 +22,10 @@ app.use('/api/v1/user', userRouter)
 app.use('/api/v1/questions', questionsRouter)
 app.use('/api/v1/execute', submitRouter)
 
+app.get('/', (req : Request, res : Response) => {
+    res.send('Healthy Server!')
+})
+    
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`)
 })
