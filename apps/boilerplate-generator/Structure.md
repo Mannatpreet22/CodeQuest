@@ -1,7 +1,7 @@
-Problem name: Two Sum
-Function name: twoSum
+Problem name: Map Test
+Function name: mapTest
 Input Structure:
-Input Field:  vector<int> nums1
-Input Field: vector<int> nums
+Input Field: set<int> arr
+Input Field: int target
 Output Structure:
 Output Field: int result

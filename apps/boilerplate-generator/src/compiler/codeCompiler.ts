@@ -29,10 +29,10 @@ export class TemplateCompiler {
     }
 
     // read structure file
-    parseFile() {
-
+    parseFile(filePath : string) {
+        const fullPath = path.resolve(process.cwd(), filePath)
         let currentSection: string = ''
-        let file = fs.readFileSync(FILE_PATH, 'utf-8')
+        let file = fs.readFileSync(fullPath, 'utf-8')
         if(!file) {
             return 'File not found!'
         }
@@ -48,7 +48,7 @@ export class TemplateCompiler {
             else if(line.startsWith('Input Structure:')) {
                 currentSection = 'input'
             }
-            else if(line.startsWith('Output Field:')) {
+            else if(line.startsWith('Output Structure:')) {
                 currentSection = 'output'
             }
             else if(line.startsWith('Input Field:')) {
@@ -85,7 +85,7 @@ export class TemplateCompiler {
         const inputs = this.inputField.length === 1 && this.inputField[0]
             ? `${this.mapTypeToCppType(this.inputField[0].type)} ${this.inputField[0].varName}` 
             : this.inputField.map(field => `${this.mapTypeToCppType(field.type)} ${field.varName}`).join(', ')
-        return `${this.mapTypeToCppType(this.outputField[0]?.type || 'int')} ${this.funcName}(${inputs}) {\n    // your code goes here\n\n    return result;\n}`
+        return `${this.mapTypeToCppType(this.outputField[0]?.type || 'int')} ${this.funcName}(${inputs}) {\n    // your code goes here\n\n    return 0;\n}`
     }
 
     private mapTypeToCppType(type: string): string {
@@ -132,12 +132,12 @@ export class TemplateCompiler {
     generatePythonTemplate() {
         const inputs = this.inputField.length === 1 && this.inputField[0]
             ? `${this.inputField[0].varName}` : this.inputField.map(field => `${field.varName}`).join(', ')
-        return `def ${this.funcName}(${inputs}):\n    # your code goes here\n\n    return result`
+        return `def ${this.funcName}(${inputs}):\n    # your code goes here\n\n    return 0`
     }
 
     generateJSTemplate() {
         const inputs = this.inputField.length === 1 && this.inputField[0]
             ? `${this.inputField[0].varName}` : this.inputField.map(field => `${field.varName}`).join(', ')
-        return `function ${this.funcName}(${inputs}) {\n    // your code goes here\n\n    return result\n}`
+        return `function ${this.funcName}(${inputs}) {\n    // your code goes here\n\n    return 0\n}`
     }
 }
