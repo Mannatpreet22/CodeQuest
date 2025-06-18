@@ -1,294 +1,285 @@
+// File: apps/boilerplate-generator/src/compiler/fullDriverCodeGenerator.ts
 
-/*
- This file is for generating the full driver code for the problem.
- 
- Structure.md file:
- 
- Problem name:
- Function name:
- Input Structure:
- Input Field:
- Input Field:
- Output Structure:
- Output Field:
-*/
+import fs from 'fs';
+import path from 'path';
+import { TemplateCompiler } from './codeCompiler';
 
-class FullDriverCodeGenerator {
-    problemName : string = ''
-    funcName : string = ''
-    inputField : {type : string, varName : string}[] = []
-    outputField : {type : string, varName : string}[] = []
+export class FullDriverCodeGenerator {
+  private compiler: TemplateCompiler;
 
+  constructor(structureFilePath: string) {
+    // 1. Read the raw Markdown from disk
+    const fullPath = path.resolve(process.cwd(), structureFilePath)
+    const rawMd = fs.readFileSync(fullPath, 'utf-8');
 
-    constructor() {
-        this.problemName = ''
-        this.funcName = ''
-        this.inputField = []
-        this.outputField = []
+    // 2. Create a TemplateCompiler, parse the Markdown, and hold on to the extracted fields:
+    this.compiler = new TemplateCompiler();
+    this.compiler.parseFile(structureFilePath);
+  }
+
+  /**
+   * Generates a complete C++ driver (includes headers, function stub, main(), and I/O logic)
+   */
+  public generateCppDriver(): string {
+    const funcName = this.compiler.funcName
+    const inputsArr = this.compiler.inputField   // each: { type: string, varName: string }
+    const outputArr = this.compiler.outputField   // each: { type: string, varName: string }
+
+    // 1. Build the parameter‐list for the function signature
+    const paramsList = inputsArr.length === 1
+      ? `${this.mapTypeToCppType(inputsArr[0]?.type || 'int')} ${inputsArr[0]?.varName || 'int'}`
+      : inputsArr
+          .map(field => `${this.mapTypeToCppType(field.type)} ${field.varName}`)
+          .join(', ');
+
+    // 2. Build the code that reads each input from stdin
+    const readInputsCode = inputsArr
+      .map(field => {
+        const { type, varName } = field
+        if (type.startsWith('vector<') || type.startsWith('list<')) {
+          // e.g. vector<int> nums  → read a size, then push_back each item
+          const innerType = type.replace('vector<', '').replace('list<', '').replace('>', '')
+          return [
+            `int size_${varName} = 0;`,
+            `std::cin >> size_${varName};`,
+            `${this.mapTypeToCppType(type)} ${varName};`,
+            `for (int i = 0; i < size_${varName}; i++) {`,
+            `  ${this.mapTypeToCppType(innerType)} ${varName}_item;`,
+            `  std::cin >> ${varName}_item;`,
+            `  ${varName}.push_back(${varName}_item);`,
+            `}`
+          ].join('\n    ')
+        }
+        else if (type.startsWith('map<')) {
+          return [
+            `int size_${varName} = 0;`,
+            `std::cin >> size_${varName};`,
+            `${this.mapTypeToCppType(type)} ${varName};`,
+            `for (int i = 0; i < size_${varName}; i++) {`,
+            `  ${this.mapTypeToCppType(type)}::key_type ${varName}_key;`,
+            `  ${this.mapTypeToCppType(type)}::mapped_type ${varName}_value;`,
+            `  std::cin >> ${varName}_key;`,
+            `  std::cin >> ${varName}_value;`,
+            `  ${varName}.insert({${varName}_key, ${varName}_value});`,
+            `}`
+          ].join('\n    ');
+        }
+        else if (type.startsWith('set<')) {
+          return [
+            `int size_${varName} = 0;`,
+            `std::cin >> size_${varName};`,
+            `${this.mapTypeToCppType(type)} ${varName};`,
+            `for (int i = 0; i < size_${varName}; i++) {`,
+            `  ${this.mapTypeToCppType(type)} ${varName}_item;`,
+            `  std::cin >> ${varName}_item;`,
+            `  ${varName}.insert(${varName}_item);`,
+            `}`
+          ].join('\n    ');
+        }
+        // Primitive or single value:
+        return `std::cin >> ${varName};`;
+      })
+      .join('\n    ');
+
+    // 3. Build the function‐call + printing logic
+    const returnType = outputArr[0]?.type ?? 'int'
+    const mappedReturnType = this.mapTypeToCppType(returnType)
+    const callLine = `${mappedReturnType} result = ${funcName}(${inputsArr
+      .map(f => f.varName)
+      .join(', ')});`
+
+    const printLine = `std::cout << result << std::endl;`
+
+    // 4. Assemble the full C++ source
+    return `
+#include <iostream>
+#include <vector>
+#include <unordered_map>
+#include <map>
+#include <set>
+using namespace std;
+
+# FUNCTION GOES HERE
+
+int main(int argc, char *argv[]) {
+    ${readInputsCode}
+    
+    ${callLine}
+    ${printLine}
+    return 0;
+}
+`.trim();
+  }
+
+  /**
+   * Generates a complete Python driver (reads inputs via input(), calls function, prints output).
+   */
+  public generatePythonDriver(): string {
+    const funcName = this.compiler.funcName;
+    const inputsArr = this.compiler.inputField;
+    const outputArr = this.compiler.outputField;
+
+    // 1. Build parameter list for the function signature
+    const paramsList = inputsArr.length === 1
+      ? inputsArr[0]?.varName || 'int'
+      : inputsArr.map(f => f.varName).join(', ');
+
+    // 2. Build code to read inputs from stdin
+    const readInputsCode = inputsArr
+      .map(field => {
+        const { type, varName } = field;
+        if (type.startsWith('list<')) {
+          // list<int> nums → read size, then loop
+          return [
+            `${varName}_size = int(input("${varName} size: "))`,
+            `${varName} = []`,
+            `for _ in range(${varName}_size):`,
+            `    ${varName}.append(int(input("${varName} item: ")))`
+          ].join('\n    ');
+        }
+        else if (type.startsWith('map<')) {
+          // map<int,int> mp → read size, then key/value pairs
+          return [
+            `${varName}_size = int(input("${varName} size: "))`,
+            `${varName} = {}`,
+            `for _ in range(${varName}_size):`,
+            `    key = int(input("${varName} key: "))`,
+            `    value = int(input("${varName} value: "))`,
+            `    ${varName}[key] = value`
+          ].join('\n    ');
+        }
+        else if (type.startsWith('set<')) {
+          return [
+            `${varName}_size = int(input("${varName} size: "))`,
+            `${varName} = set()`,
+            `for _ in range(${varName}_size):`,
+            `    val = int(input("${varName} item: "))`,
+            `    ${varName}.add(val)`
+          ].join('\n    ');
+        }
+        // Primitive or single value:
+        return `${varName} = int(input("${varName}: "))`;
+      })
+      .join('\n    ');
+
+    // 3. Build function‐call + print
+    const callLine = `result = ${funcName}(${inputsArr.map(f => f.varName).join(', ')})`;
+    const printLine = `print(result)`;
+
+    // 4. Assemble full Python source
+    return `
+def ${funcName}(${paramsList}):
+    # TODO: implement solution
+    return 0
+
+if __name__ == "__main__":
+    ${readInputsCode}
+    ${callLine}
+    ${printLine}
+`.trim();
+  }
+
+  /**
+   * Generates a complete JavaScript driver (uses readline‐sync to read inputs, calls function, prints output).
+   */
+  public generateJSTriver(): string {
+    const funcName = this.compiler.funcName;
+    const inputsArr = this.compiler.inputField;
+    const outputArr = this.compiler.outputField;
+
+    // 1. Build parameter list for the function signature
+    const paramsList = inputsArr.length === 1
+      ? inputsArr[0]?.varName || 'int'
+      : inputsArr.map(f => f.varName).join(', ');
+
+    // 2. Build code to read inputs from stdin (via readline‐sync)
+    const readInputsCode = inputsArr
+      .map(field => {
+        const { type, varName } = field;
+        if (type.startsWith('list<')) {
+          return [
+            `const ${varName}_size = parseInt(readlineSync.question("${varName} size: "));`,
+            `let ${varName} = [];`,
+            `for (let i = 0; i < ${varName}_size; i++) {`,
+            `  ${varName}.push(parseInt(readlineSync.question("${varName} item: ")));`,
+            `}`
+          ].join('\n    ');
+        }
+        else if (type.startsWith('map<')) {
+          return [
+            `const ${varName}_size = parseInt(readlineSync.question("${varName} size: "));`,
+            `let ${varName} = new Map();`,
+            `for (let i = 0; i < ${varName}_size; i++) {`,
+            `  const key = parseInt(readlineSync.question("${varName} key: "));`,
+            `  const value = parseInt(readlineSync.question("${varName} value: "));`,
+            `  ${varName}.set(key, value);`,
+            `}`
+          ].join('\n    ');
+        }
+        else if (type.startsWith('set<')) {
+          return [
+            `const ${varName}_size = parseInt(readlineSync.question("${varName} size: "));`,
+            `let ${varName} = new Set();`,
+            `for (let i = 0; i < ${varName}_size; i++) {`,
+            `  ${varName}.add(parseInt(readlineSync.question("${varName} item: ")));`,
+            `}`
+          ].join('\n    ');
+        }
+        // Primitive or single value:
+        return `const ${varName} = parseInt(readlineSync.question("${varName}: "));`;
+      })
+      .join('\n    ');
+
+    // 3. Build function‐call + print
+    const callLine = `const result = ${funcName}(${inputsArr.map(f => f.varName).join(', ')});`;
+    const printLine = `console.log(result);`;
+
+    // 4. Assemble full JS source
+    return `
+const readlineSync = require("readline-sync");
+
+function ${funcName}(${paramsList}) {
+    // TODO: implement solution
+    return 0;
+}
+
+function main() {
+    ${readInputsCode}
+    ${callLine}
+    ${printLine}
+}
+
+main();
+`.trim();
+  }
+
+  // ———————————
+  // Helper: Map a "markdown type" (e.g. "vector<int>") into valid C++ syntax 
+  private mapTypeToCppType(type: string): string {
+    if (type.startsWith('vector<') || type.startsWith('list<')) {
+      const inner = type.replace(/^(vector|list)<|>$/g, '');
+      return `vector<${this.mapTypeToCppType(inner)}>`;
+    }
+    if (type.startsWith('map<')) {
+      const inner = type.replace(/^map<|>$/g, '');
+      return `map<${inner.replace(',', ', ')}>`;
+    }
+    if (type.startsWith('set<')) {
+      const inner = type.replace(/^set<|>$/g, '');
+      return `set<${this.mapTypeToCppType(inner)}>`;
+    }
+    if (type.startsWith('tuple<')) {
+      const inner = type.replace(/^tuple<|>$/g, '');
+      return `tuple<${inner.replace(',', ', ')}>`;
     }
 
-    parseFile(inputFile : string) {
-        let currentSection: string = ''
-        const lines = this.parseLines(inputFile)
-        lines.map((line :string) => {
-            if(line.startsWith('Problem name:')) {
-                this.problemName = line.replace('Problem name:', '').trim()
-            }
-            else if(line.startsWith('Function name:')) {
-                this.funcName = line.replace('Function Name:','').trim()
-            }
-            else if(line.startsWith('Input Structure:')) {
-                currentSection = 'input'
-            }
-            else if(line.startsWith('Output Field:')) {
-                currentSection = 'output'
-            }
-            else if(line.startsWith('Input Field:')) {
-                if(currentSection === 'input')  {
-                    const field = this.getField(line,'Input Field:')
-                    if (field) this.inputField.push(field)
-                }
-            }
-            else if(line.startsWith('Output Field:')) {
-                if(currentSection === 'output') {
-                    const field = this.getField(line,'Output Field:')
-                    if(field)   this.outputField.push(field)
-                }
-            }
-        })
+    switch (type) {
+      case 'string': return 'string';
+      case 'int': return 'int';
+      case 'bool': return 'bool';
+      case 'float': return 'float';
+      case 'double': return 'double';
+      default: return 'int'; 
     }
-
-    parseLines(file : string) {
-        return file.split('\n').map(line => line.trim()) 
-    }
-
-    getField(line: string, value : string) : {type : string, varName : string} | null {
-        const match: string = line.replace(value, '').trim()
-        const found = match.split(' ')
-        if (!found[0] || !found[1]) return null
-        return {
-            type: found[0],
-            varName: found[1]
-        }
-    }
-
-    generateCppTemplate(): string {
-        const inputs = this.inputField.length === 1 && this.inputField[0]
-            ? `${this.mapTypeToCppType(this.inputField[0].type)} ${this.inputField[0].varName}` : this.inputField.map(field => `${this.mapTypeToCppType(field.type)} ${field.varName}`).join(', ')
-            // this function is suppposed to read from the input file and generate the main function code
-            // int main(int argc, char *argv[]) {
-            //     int size = 0;
-            //     cin >> size;
-            //     vector<int> input(size);
-            //     for(int i = 0; i < size; i++) {
-            //         cin >> input[i];
-            //     }
-            //     int result = functionName(input);
-            //     cout << result;
-            // }
-            const readInputs = this.inputField.map((field)=> {
-                if(field.type.startsWith('list<')) {
-                    return `int size_${field.varName} = 0;\n std::cin >> size_${field.varName};\n ${this.mapTypeToCppType(field.type)} ${field.varName}(size_${field.varName});\n for(int i = 0; i < size_${field.varName}; i++) {\n    ${this.mapTypeToCppType(field.type)} ${field.varName}_item;\n    std::cin >> ${field.varName}_item;\n    ${field.varName}.push_back(${field.varName}_item);\n}`
-                }
-                else if(field.type.startsWith('map<')) {
-                    return `int size_${field.varName} = 0;\n std::cin >> size_${field.varName};\n ${this.mapTypeToCppType(field.type)} ${field.varName}(size_${field.varName});\n for(int i = 0; i < size_${field.varName}; i++) {\n    ${this.mapTypeToCppType(field.type)} ${field.varName}_key;\n    std::cin >> ${field.varName}_key;\n    ${this.mapTypeToCppType(field.type)} ${field.varName}_value;\n    std::cin >> ${field.varName}_value;\n    ${field.varName}.insert(std::pair<${this.mapTypeToCppType(field.type)}, ${this.mapTypeToCppType(field.type)}>(${field.varName}_key, ${field.varName}_value));\n}`
-                }
-                else if(field.type.startsWith('set<')) {
-                    return `int size_${field.varName} = 0;\n std::cin >> size_${field.varName};\n ${this.mapTypeToCppType(field.type)} ${field.varName}(size_${field.varName});\n for(int i = 0; i < size_${field.varName}; i++) {\n    ${this.mapTypeToCppType(field.type)} ${field.varName}_item;\n    std::cin >> ${field.varName}_item;\n    ${field.varName}.insert(${field.varName}_item);\n}`
-                }
-                else {
-                    return `std::cin >> ${field.varName}`
-                }
-            }).join('\n    ')
-        const outputType = this.outputField[0]?.type || 'int'
-        const functionCall = `${outputType} result = ${this.funcName}(${inputs});\n std::cout << result;`
-        const outputField = `std::cout << result << std::endl;`
-
-        return `
-        #include <iostream>
-        #include <vector>
-        #include <unordered_map>
-        #include <set>
-        using namespace std;
-        ${this.outputField[0]?.type} ${this.funcName}(${inputs}) { \n   // your code goes here    return result}
-        int main(int argc, char *argv[]) {
-            ${readInputs}
-            ${functionCall}
-            ${outputField}
-            return 0;
-        }
-        `
-    }
-
-    generatePythonTemplate() : string {
-        const inputs = this.inputField.length === 1 && this.inputField[0]
-            ? `${this.inputField[0].varName}` : this.inputField.map(field => `${field.varName}`).join(', ')
-        const readInputs = this.inputField.map((field)=> {
-            if(field.type.startsWith('list<')) {
-                return `size_${field.varName} = int(input('${field.varName} size: '))\n ${this.mapTypeToPythonType(field.type)} ${field.varName} = ${this.mapTypeToPythonType(field.type)}(${field.varName}_size)\n for i in range(${field.varName}_size):\n    ${this.mapTypeToPythonType(field.type)} ${field.varName}_item = int(input('${field.varName} item: '))\n    ${field.varName}.append(${field.varName}_item)`
-            }
-            else if(field.type.startsWith('map<')) {
-                return `size_${field.varName} = int(input('${field.varName} size: '))\n ${this.mapTypeToPythonType(field.type)} ${field.varName} = ${this.mapTypeToPythonType(field.type)}(${field.varName}_size)\n for i in range(${field.varName}_size):\n    ${this.mapTypeToPythonType(field.type)} ${field.varName}_key = int(input('${field.varName} key: '))\n    ${this.mapTypeToPythonType(field.type)} ${field.varName}_value = int(input('${field.varName} value: '))\n    ${field.varName}.insert(${field.varName}_key, ${field.varName}_value)`
-            }
-            else if(field.type.startsWith('set<')) {
-                return `size_${field.varName} = int(input('${field.varName} size: '))\n ${this.mapTypeToPythonType(field.type)} ${field.varName} = ${this.mapTypeToPythonType(field.type)}(${field.varName}_size)\n for i in range(${field.varName}_size):\n    ${this.mapTypeToPythonType(field.type)} ${field.varName}_item = int(input('${field.varName} item: '))\n    ${field.varName}.add(${field.varName}_item)`
-            }
-            else {
-                return `${this.mapTypeToPythonType(field.type)} ${field.varName} = int(input('${field.varName}: '))`
-            }
-        }).join('\n    ')
-        const outputType = this.outputField[0]?.type || 'int'
-        const functionCall = `${outputType} result = ${this.funcName}(${inputs})\n print(result)`
-        const outputField = `print(result)` 
-        return `
-        def main():
-            # your code goes here
-            return result
-        
-        if __name__ == '__main__':
-            ${readInputs}
-            ${functionCall}
-            ${outputField}
-        `
-    }
-
-    generateJSTemplate() : string {
-        const inputs = this.inputField.length === 1 && this.inputField[0]
-            ? `${this.inputField[0].varName}` : this.inputField.map(field => `${field.varName}`).join(', ')
-        const readInputs = this.inputField.map((field)=> {
-            if(field.type.startsWith('list<')) {
-                return `const ${field.varName}_size = parseInt(readlineSync.question('${field.varName} size: '))\n ${this.mapTypeToJSType(field.type)} ${field.varName} = new ${this.mapTypeToJSType(field.type)}(${field.varName}_size)\n for(let i = 0; i < ${field.varName}_size; i++) {\n    const ${field.varName}_item = parseInt(readlineSync.question('${field.varName} item: '))\n    ${field.varName}.push(${field.varName}_item)\n}`
-            }
-            else if(field.type.startsWith('map<')) {
-                return `const ${field.varName}_size = parseInt(readlineSync.question('${field.varName} size: '))\n ${this.mapTypeToJSType(field.type)} ${field.varName} = new ${this.mapTypeToJSType(field.type)}()\n for(let i = 0; i < ${field.varName}_size; i++) {\n    const ${field.varName}_key = parseInt(readlineSync.question('${field.varName} key: '))\n    const ${field.varName}_item = parseInt(readlineSync.question('${field.varName} item: '))\n    ${field.varName}.set(${field.varName}_key, ${field.varName}_item)\n}`
-            }
-            else if(field.type.startsWith('set<')) {
-                return `const ${field.varName}_size = parseInt(readlineSync.question('${field.varName} size: '))\n ${this.mapTypeToJSType(field.type)} ${field.varName} = new ${this.mapTypeToJSType(field.type)}()\n for(let i = 0; i < ${field.varName}_size; i++) {\n    const ${field.varName}_item = parseInt(readlineSync.question('${field.varName} item: '))\n    ${field.varName}.add(${field.varName}_item)\n}`
-            }
-            else if(field.type.startsWith('tuple<')) {
-                return `const ${field.varName}_size = parseInt(readlineSync.question('${field.varName} size: '))\n ${this.mapTypeToJSType(field.type)} ${field.varName} = new ${this.mapTypeToJSType(field.type)}(${field.varName}_size)\n for(let i = 0; i < ${field.varName}_size; i++) {\n    const ${field.varName}_item = parseInt(readlineSync.question('${field.varName} item: '))\n    ${field.varName}.push(${field.varName}_item)\n}`
-            }
-            else {
-                return `${this.mapTypeToJSType(field.type)} ${field.varName} = parseInt(readlineSync.question('${field.varName}: '))`
-            }
-        }).join('\n    ')
-        const outputType = this.outputField[0]?.type || 'int'
-        const functionCall = `const result = ${this.funcName}(${inputs})\nconsole.log(result)`
-        const outputField = `console.log(result)`
-        return `
-        const readlineSync = require('readline-sync')
-        ${this.outputField[0]?.type} ${this.funcName}(${inputs}) { \n   // your code goes here    return result}
-        
-        const main = () => {
-            ${readInputs}
-            ${functionCall}
-            ${outputField}
-        }
-        main()
-        `
-    }
-
-    private mapTypeToJSType(type: string): string {
-        if (type.startsWith('list')) {
-            const innerType = type.replace('list', '').trim() || 'int'
-            return `Array[${this.mapTypeToJSType(innerType)}]`
-        }
-        else if(type.startsWith('map')) {
-            const innerType = type.replace('map', '').trim() || 'int'
-            return `Map[${this.mapTypeToJSType(innerType)}]`
-        }
-        else if(type.startsWith('set')) {
-            const innerType = type.replace('set', '').trim() || 'int'
-            return `Set[${this.mapTypeToJSType(innerType)}]`
-        }
-        else if(type.startsWith('tuple')) {
-            const innerType = type.replace('tuple', '').trim() || 'int'
-            return `Array[${this.mapTypeToJSType(innerType)}]`
-        }
-        else {
-            switch(type) {
-                case 'string':
-                    return 'string'
-                case 'int':
-                    return 'number'
-                case 'bool':
-                    return 'boolean'
-                case 'float':
-                    return 'number'
-                case 'double':
-                    return 'number'
-                default:
-                    return 'number'
-            }
-        }
-    }
-    private mapTypeToPythonType(type: string): string {
-        if (type.startsWith('list')) {
-            const innerType = type.replace('list', '').trim() || 'int'
-            return `list[${this.mapTypeToPythonType(innerType)}]`
-        }
-        else if(type.startsWith('map')) {
-            const innerType = type.replace('map', '').trim() || 'int'
-            return `dict[${this.mapTypeToPythonType(innerType)}]`
-        }
-        else if(type.startsWith('set')) {
-            const innerType = type.replace('set', '').trim() || 'int'
-            return `set[${this.mapTypeToPythonType(innerType)}]`
-        }
-        else if(type.startsWith('tuple')) {
-            const innerType = type.replace('tuple', '').trim() || 'int'
-            return `tuple[${this.mapTypeToPythonType(innerType)}]`
-        }
-        else {
-            switch(type) {
-                case 'string':
-                    return 'str'
-                case 'int':
-                    return 'int'
-                case 'bool':
-                    return 'bool'
-                case 'float':
-                    return 'float'
-                case 'double':
-                    return 'double'
-                default:
-                    return 'int'
-            }
-        }
-    }
-
-    private mapTypeToCppType(type: string): string {
-        if (type.startsWith('list')) {
-            const innerType = type.replace('list', '').trim() || 'int'
-            return `vector<${this.mapTypeToCppType(innerType)}>`
-        }
-        else if(type.startsWith('map')) {
-            const innerType = type.replace('map', '').trim() || 'int'
-            return `map<${this.mapTypeToCppType(innerType)}>`
-        }
-        else if(type.startsWith('set')) {
-            const innerType = type.replace('set', '').trim() || 'int'
-            return `set<${this.mapTypeToCppType(innerType)}>`
-        }
-        else if(type.startsWith('tuple')) {
-            const innerType = type.replace('tuple', '').trim() || 'int'
-            return `tuple<${this.mapTypeToCppType(innerType)}>`
-        }
-        else {
-            switch(type) {
-                case 'string':
-                    return 'string'
-                case 'int':
-                    return 'int'
-                case 'bool':
-                    return 'bool'
-                case 'float':
-                    return 'float'
-                case 'double':
-                    return 'double'
-                default:
-                    return 'int'
-            }
-        }
-    }
+  }
 }
