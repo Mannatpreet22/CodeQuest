@@ -16,6 +16,7 @@
     "prisma": "^6.5.0"
   },
   "dependencies": {
-    "@prisma/client": "^6.5.0"
+    "@prisma/client": "^6.5.0",
+    "simple-git": "^3.28.0"
   }
 }

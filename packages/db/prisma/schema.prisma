@@ -28,8 +28,8 @@ model User {
 
 model Question {
   id         String       @id @default(uuid())
-  title      String
-  body       String       // Full description / markdown
+  title      String       @unique
+  body       String       
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
   
