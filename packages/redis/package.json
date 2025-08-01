@@ -12,9 +12,10 @@
   "dependencies": {
     "@redis/client": "^1.6.0",
     "@types/redis": "^4.0.10",
+    "dotenv": "^17.2.1",
     "redis": "^1.0.0"
   },
-  "exports" : {
-    "./redis" : "./src/RedisManager.ts"
+  "exports": {
+    "./client": "./src/RedisManager.ts"
   }
 }

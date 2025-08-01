@@ -3,29 +3,46 @@ import cors from 'cors'
 import { userRouter } from './routes/userRouter'
 import { questionsRouter } from './routes/questionsRouter'
 import { submitRouter } from './routes/submitRouter'
-import { ClerkExpressWithAuth } from '@clerk/clerk-sdk-node'
+import { RedisManager } from '@repo/redis/client'
+
 const app = express()
 
-const PORT  = 3000
+const PORT = 3000
 
 app.use(express.json())
-app.use(
-    ClerkExpressWithAuth({
-      secretKey: process.env.CLERK_SECRET_KEY,
-    })
-  );
-  
+
 app.use(cors())
 
-
-app.use('/api/v1/user', userRouter)
-app.use('/api/v1/questions', questionsRouter)
-app.use('/api/v1/execute', submitRouter)
-
-app.get('/', (req : Request, res : Response) => {
-    res.send('Healthy Server!')
+// Health check endpoint
+app.get('/health', async (req: Request, res: Response) => {
+    try {
+        // Check Redis connection
+        const redisManager = await RedisManager.getInstance()
+        const redisHealth = await redisManager.healthCheck()
+        
+        res.status(200).json({
+            status: 'healthy',
+            service: 'codequest-api',
+            timestamp: new Date().toISOString(),
+            redis: redisHealth ? 'connected' : 'disconnected',
+            uptime: process.uptime()
+        })
+    } catch (error) {
+        res.status(503).json({
+            status: 'unhealthy',
+            service: 'codequest-api',
+            timestamp: new Date().toISOString(),
+            error: error instanceof Error ? error.message : 'Unknown error'
+        })
+    }
 })
-    
+
+// API routes
+app.use('/api/user', userRouter)
+app.use('/api/questions', questionsRouter)
+app.use('/api/submit', submitRouter)
+
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`)
+    console.log(`🚀 CodeQuest API server running on port ${PORT}`)
+    console.log(`📊 Health check: http://localhost:${PORT}/health`)
 })

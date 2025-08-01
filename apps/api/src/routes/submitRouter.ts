@@ -1,12 +1,14 @@
-import {NextFunction, Request, Response, Router} from 'express'
+import { NextFunction, Request, Response, Router } from 'express'
 import { questionSubmission } from '../types/types'
-import { RedisManager } from '@repo/redis/redis'
+import { RedisManager } from '@repo/redis/client'
 import { parsedQuestionSubmission } from '@repo/commons/types'
 import { rateLimit } from 'express-rate-limit'
+import prisma from '@repo/db/client'
+
 export const submitRouter = Router()
 
 // rate limit
-const rateLimiter = rateLimit({ 
+const rateLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 100, // limit each IP to 100 requests per windowMs
     message: 'Too many requests from this IP, please try again after 15 minutes',
@@ -16,53 +18,228 @@ const rateLimiter = rateLimit({
 
 submitRouter.use(rateLimiter)
 
-// submitRouter.post('/run',async (req : Request, res : Response)=> {
-//     const data : questionSubmission = req.body
-//     if(!data) {
-//         res.status(400).json({
-//             msg : 'Body not found!'
-//         })
-//         return
-//     }
-
-//     const response = await RedisManager.getInstance().sendAndAwait(data)
-//     res.status(200).json(response.payload)
-
-
-// })
-
-submitRouter.post('/submit',async (req : Request, res : Response)=> {
-    const data : questionSubmission = req.body
+// Test code execution (doesn't save to database)
+submitRouter.post('/run', async (req: Request, res: Response) => {
+    const data: questionSubmission = req.body
     const parseResult = parsedQuestionSubmission.safeParse(data)
-    if(!parseResult.success) {
+    
+    if (!parseResult.success) {
         res.status(400).json({
-            msg : 'Body not found!'
+            success: false,
+            message: 'Invalid request body!',
+            errors: parseResult.error.errors
         })
         return
     }
-/*
-    submissionId :string
-    problemId : string
-    userId : string
-    code : string
-    language : string
-*/
-    const response = await RedisManager.getInstance().sendAndAwait({
-        userId: parseResult.data.userId,
-        problemId: parseResult.data.problemId,
-        lang: parseResult.data.lang,
-        code: parseResult.data.code
-    })
-    if(response.payload) {
-        res.status(200).json(response.payload)
-    }
-    else {
+
+    try {
+        console.log(`🚀 Processing test run for user: ${parseResult.data.userId}, problem: ${parseResult.data.problemId}`)
+        
+        const redisManager = await RedisManager.getInstance()
+        const response = await redisManager.sendAndAwait({
+            userId: parseResult.data.userId,
+            problemId: parseResult.data.problemId,
+            lang: parseResult.data.lang,
+            code: parseResult.data.code,
+        })
+        
+        if (response.payload) {
+            // Check if the status indicates success (AC = Accepted)
+            const status = String(response.payload.status)
+            const isSuccess = status === 'AC' || status === '3'
+            
+            res.status(200).json({
+                success: isSuccess,
+                data: response.payload,
+                message: isSuccess ? 'Code executed successfully' : 'Code execution failed - incorrect answer'
+            })
+        } else {
+            res.status(500).json({
+                success: false,
+                message: 'Code execution failed!'
+            })
+        }
+    } catch (error: any) {
+        console.error('❌ Error in /run endpoint:', error)
         res.status(500).json({
-            msg : 'Submission failed!'
+            success: false,
+            message: 'Internal server error!',
+            error: error.message
         })
     }
 })
 
-submitRouter.post('/all-submissions',(req : Request, res: Response)=> {
+submitRouter.post('/submit', async (req: Request, res: Response) => {
+    const data: questionSubmission = req.body
+    const parseResult = parsedQuestionSubmission.safeParse(data)
     
+    if (!parseResult.success) {
+        res.status(400).json({
+            success: false,
+            message: 'Invalid request body!',
+            errors: parseResult.error.errors
+        })
+        return
+    }
+
+    try {
+        // Check for pending submission
+        const userSubmission = await prisma.submission.findFirst({
+            where: {
+                userId: parseResult.data.userId,
+                questionId: parseResult.data.problemId,
+                status: 'PENDING'
+            }
+        })
+        
+        if (userSubmission) {
+            res.status(400).json({
+                success: false,
+                message: 'You have already submitted this question and it is being processed!'
+            })
+            return
+        }
+
+        console.log(`📝 Processing submission for user: ${parseResult.data.userId}, problem: ${parseResult.data.problemId}`)
+        
+        // Send to worker via Redis
+        const redisManager = await RedisManager.getInstance()
+        const response = await redisManager.sendAndAwait({
+            userId: parseResult.data.userId,
+            problemId: parseResult.data.problemId,
+            lang: parseResult.data.lang,
+            code: parseResult.data.code,
+        })
+        
+        if (response.payload) {
+            // Check if the status indicates success (AC = Accepted)
+            const status = String(response.payload.status)
+            const isSuccess = status === 'AC' || status === '3'
+            
+            res.status(200).json({
+                success: isSuccess,
+                data: response.payload,
+                message: isSuccess ? 'Submission created successfully and is being processed' : 'Submission failed - incorrect answer or runtime error'
+            })
+        } else {
+            res.status(500).json({
+                success: false,
+                message: 'Submission failed!'
+            })
+        }
+    } catch (error: any) {
+        console.error('❌ Error in /submit endpoint:', error)
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error!',
+            error: error.message
+        })
+    }
+})
+
+// Get submission status
+submitRouter.get('/submission/:submissionId', async (req: Request, res: Response) => {
+    try {
+        const { submissionId } = req.params
+        
+        const submission = await prisma.submission.findUnique({
+            where: { id: submissionId },
+            include: {
+                question: {
+                    select: {
+                        title: true
+                    }
+                }
+            }
+        })
+        
+        if (!submission) {
+            res.status(404).json({
+                success: false,
+                message: 'Submission not found!'
+            })
+            return
+        }
+        
+        res.status(200).json({
+            success: true,
+            data: submission
+        })
+    } catch (error: any) {
+        console.error('❌ Error fetching submission:', error)
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error!',
+            error: error.message
+        })
+    }
+})
+
+// Get all submissions for a user
+submitRouter.get('/submissions/:userId', async (req: Request, res: Response) => {
+    try {
+        const { userId } = req.params
+        
+        const submissions = await prisma.submission.findMany({
+            where: { userId },
+            include: {
+                question: {
+                    select: {
+                        title: true
+                    }
+                }
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        })
+        
+        res.status(200).json({
+            success: true,
+            data: submissions
+        })
+    } catch (error: any) {
+        console.error('❌ Error fetching user submissions:', error)
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error!',
+            error: error.message
+        })
+    }
+})
+
+// Get all submissions (admin endpoint)
+submitRouter.get('/all-submissions', async (req: Request, res: Response) => {
+    try {
+        const submissions = await prisma.submission.findMany({
+            include: {
+                question: {
+                    select: {
+                        title: true
+                    }
+                },
+                user: {
+                    select: {
+                        username: true,
+                        email: true
+                    }
+                }
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        })
+        
+        res.status(200).json({
+            success: true,
+            data: submissions
+        })
+    } catch (error: any) {
+        console.error('❌ Error fetching all submissions:', error)
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error!',
+            error: error.message
+        })
+    }
 })

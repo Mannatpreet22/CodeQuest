@@ -41,16 +41,32 @@ model Question {
 }
 
 model TestCase {
-  id             Int     @id @default(autoincrement())
-  inputData      String
-  expectedOutput String
-  
-  // Foreign key
-  questionId String
-  
-  // Relations
-  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  id           Int        @id @default(autoincrement())
+  inputs       Json
+  expected     Json
+
+  question     Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  questionId   String
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  testCaseInputs TestCaseInput[]
+
+  @@index([questionId])
 }
+
+model TestCaseInput {
+  id           Int        @id @default(autoincrement())
+  testCase     TestCase   @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  testCaseId   Int
+  position     Int
+  name         String?
+  value        Json
+
+  @@index([testCaseId, position])
+}
+
 
 model Example {
   id          Int    @id @default(autoincrement())
@@ -73,7 +89,6 @@ model TemplateCode {
   
   // Relations
   question            Question            @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  programmingLanguage ProgrammingLanguage @relation(fields: [programmingLanguageId], references: [id])
 }
 
 
@@ -89,22 +104,8 @@ model Submission {
   // Foreign keys
   userId                String
   questionId            String
-  programmingLanguageId String
-  
+  language              String
   // Relations
   user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   question            Question            @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  programmingLanguage ProgrammingLanguage @relation(fields: [programmingLanguageId], references: [id])
-}
-
-model ProgrammingLanguage {
-  id         String               @id @default(uuid())
-  name       String
-  version    String?
-  compileCmd String?        // e.g., "g++ main.cpp -o main"
-  runCmd     String?        // e.g., "./main"
-  
-  // Relations
-  submissions   Submission[]
-  templateCodes TemplateCode[]
 }

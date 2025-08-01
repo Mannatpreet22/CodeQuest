@@ -1,16 +1,53 @@
-import {Request, Response, Router} from 'express'
-
+import {Router, RequestHandler} from 'express'
+import prisma from '@repo/db/client'
 export const questionsRouter = Router()
 
-questionsRouter.get('/all-questions',(req : Request, res : Response)=> {
+const getAllQuestions: RequestHandler = async (req, res) => {
+    const questions = await prisma.question.findMany({})
+    if (!questions) {
+        res.status(404).json({error : 'No questions found'})
+        return
+    }
+    res.json(questions)
+}
 
+questionsRouter.get('/all-questions', getAllQuestions)
+
+questionsRouter.get('/question', async (req, res) => {
+    const {id} = req.query
+    if (!id) {
+        res.status(400).json({error : 'No id provided'})
+        return
+    }
+    const question = await prisma.question.findUnique({where : {id : id as string}})
+    if (!question || question.id !== id) {
+        res.status(404).json({error : 'Question not found'})
+        return
+    }
+    res.json(question)
 })
 
-questionsRouter.get('/question',(req : Request, res : Response)=> {
-    
-})
-
-questionsRouter.post('/question',(req : Request, res : Response)=> {
-    
+// Get question with test cases (for debugging)
+questionsRouter.get('/question/:id/testcases', async (req, res) => {
+    const {id} = req.params
+    if (!id) {
+        res.status(400).json({error : 'No id provided'})
+        return
+    }
+    const question = await prisma.question.findUnique({
+        where: {id: id as string},
+        include: {
+            testcases: {
+                include: {
+                    testCaseInputs: true
+                }
+            }
+        }
+    })
+    if (!question) {
+        res.status(404).json({error : 'Question not found'})
+        return
+    }
+    res.json(question)
 })
 

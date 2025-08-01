@@ -13,12 +13,15 @@ export type IncomingMessage = {
 export type ResponseData = {
     payload : {
         id : string,
-        status : Status
+        status : string
     }
 }
 
-enum Status {
-    'Success',
-    'Failure',
+export enum Status {
+    'AC',     // Accepted
+    'WA',     // Wrong Answer
+    'TLE',   // Time Limit Exceeded
+    'RE',     // Runtime Error
+    'CE',     // Compilation Error
     'Pending'
 }
