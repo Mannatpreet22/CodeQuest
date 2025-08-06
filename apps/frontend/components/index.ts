@@ -8,6 +8,8 @@ export { default as CircleSkeleton } from './components/Skeletons/CircleSkeleton
 export { default as RectangleSkeleton } from './components/Skeletons/RectangleSkeleton';
 export { default as ToastProvider } from './ToastProvider';
 export { default as ClientProviders } from './ClientProviders';
+export { default as ProblemPageContent } from './ProblemPageContent';
+export { default as HomePageContent } from './HomePageContent';
 
 // Re-export workspace components
 export { default as Playground } from './components/Workspace/Playground/Playground';
