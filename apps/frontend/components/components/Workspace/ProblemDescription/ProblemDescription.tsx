@@ -3,6 +3,7 @@
 import CircleSkeleton from "@/components/components/Skeletons/CircleSkeleton";
 import RectangleSkeleton from "@/components/components/Skeletons/RectangleSkeleton";
 import { Problem } from "@/utils/utils/types/problem";
+import { SerializableProblem } from "@/utils/utils/types/serializable";
 import { useEffect, useState } from "react";
 import { AiFillLike, AiFillDislike, AiOutlineLoading3Quarters, AiFillStar } from "react-icons/ai";
 import { BsCheck2Circle } from "react-icons/bs";
@@ -11,7 +12,7 @@ import { toast } from "react-toastify";
 import { SubmissionRow, SubmissionsTable } from "./SubmissionTab";
 
 type ProblemDescriptionProps = {
-	problem: Problem;
+	problem: SerializableProblem;
 	_solved: boolean;
 };
 
@@ -135,6 +136,8 @@ public:
 		setUpdating(true);
 		
 		try {
+			if (typeof window === 'undefined') return;
+			
 			const savedUser = localStorage.getItem('user');
 			if (!savedUser) {
 				toast.error("Please sign in to like problems", { position: "top-center", autoClose: 3000, theme: "dark" });
@@ -195,6 +198,8 @@ public:
 		setUpdating(true);
 		
 		try {
+			if (typeof window === 'undefined') return;
+			
 			const savedUser = localStorage.getItem('user');
 			if (!savedUser) {
 				toast.error("Please sign in to dislike problems", { position: "top-center", autoClose: 3000, theme: "dark" });
@@ -255,6 +260,8 @@ public:
 		setUpdating(true);
 
 		try {
+			if (typeof window === 'undefined') return;
+			
 			const savedUser = localStorage.getItem('user');
 			if (!savedUser) {
 				toast.error("Please sign in to star problems", { position: "top-center", autoClose: 3000, theme: "dark" });
@@ -430,17 +437,22 @@ function useGetCurrentProblem(problemId: string) {
 		const getCurrentProblem = async () => {
 			setLoading(true);
 			
-			// Try to get from localStorage first
-			const problemKey = `problem_${problemId}`;
-			const savedProblemData = localStorage.getItem(problemKey);
-			
 			let problemData;
-			if (savedProblemData) {
-				problemData = JSON.parse(savedProblemData);
+			if (typeof window !== 'undefined') {
+				// Try to get from localStorage first
+				const problemKey = `problem_${problemId}`;
+				const savedProblemData = localStorage.getItem(problemKey);
+				
+				if (savedProblemData) {
+					problemData = JSON.parse(savedProblemData);
+				} else {
+					// Use mock data if not in localStorage
+					problemData = mockProblemData[problemId as keyof typeof mockProblemData] || { likes: 0, dislikes: 0 };
+					localStorage.setItem(problemKey, JSON.stringify(problemData));
+				}
 			} else {
-				// Use mock data if not in localStorage
+				// Use mock data on server side
 				problemData = mockProblemData[problemId as keyof typeof mockProblemData] || { likes: 0, dislikes: 0 };
-				localStorage.setItem(problemKey, JSON.stringify(problemData));
 			}
 			
 			// Get problem details from the problems array
@@ -476,16 +488,18 @@ function useGetUsersDataOnProblem(problemId: string) {
 
 	useEffect(() => {
 		const getUsersDataOnProblem = () => {
-			const savedUser = localStorage.getItem('user');
-			if (savedUser) {
-				const user = JSON.parse(savedUser);
-				const { solvedProblems, likedProblems, dislikedProblems, starredProblems } = user;
-				setData({
-					liked: likedProblems.includes(problemId),
-					disliked: dislikedProblems.includes(problemId),
-					starred: starredProblems.includes(problemId),
-					solved: solvedProblems.includes(problemId),
-				});
+			if (typeof window !== 'undefined') {
+				const savedUser = localStorage.getItem('user');
+				if (savedUser) {
+					const user = JSON.parse(savedUser);
+					const { solvedProblems, likedProblems, dislikedProblems, starredProblems } = user;
+					setData({
+						liked: likedProblems.includes(problemId),
+						disliked: dislikedProblems.includes(problemId),
+						starred: starredProblems.includes(problemId),
+						solved: solvedProblems.includes(problemId),
+					});
+				}
 			}
 		};
 

@@ -1,26 +1,41 @@
-'use client';
-
-import { useParams } from 'next/navigation';
+import type { Metadata } from 'next'
 import { problems } from '@/utils/utils/problems';
-import Workspace from '@/components/components/Workspace/Workspace';
-import Navbar from '@/components/components/Navbar/Navbar';
+import { Workspace, Navbar } from '@/components';
 import { SignedIn, SignedOut, SignInButton } from '@clerk/nextjs';
+import { notFound } from 'next/navigation';
+import { serializeProblem } from '@/utils/utils/types/serializable';
 
-export default function ProblemPage() {
-  const params = useParams();
-  const pid = params.pid as string;
+type Props = {
+  params: Promise<{ pid: string }>
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { pid } = await params;
+  const problem = problems[pid];
+  
+  if (!problem) {
+    return {
+      title: 'Problem Not Found | CodeQuest',
+      description: 'The requested coding problem could not be found.'
+    }
+  }
+  
+  return {
+    title: `${problem.title} | CodeQuest`,
+    description: `Solve the ${problem.title} coding problem on CodeQuest. Practice your programming skills with this challenging problem.`,
+  }
+}
+
+export default async function ProblemPage({ params }: Props) {
+  const { pid } = await params;
   const problem = problems[pid];
 
   if (!problem) {
-    return (
-      <div className='bg-dark-layer-1 min-h-screen'>
-        <Navbar problemPage />
-        <div className='flex items-center justify-center h-screen'>
-          <h1 className='text-2xl font-bold text-white'>Problem not found</h1>
-        </div>
-      </div>
-    );
+    notFound();
   }
+
+  // Create a serializable version of the problem without functions
+  const serializableProblem = serializeProblem(problem);
 
   return (
     <div className='bg-dark-layer-1 min-h-screen'>
@@ -28,7 +43,7 @@ export default function ProblemPage() {
       
       
       <SignedIn>
-        <Workspace problem={problem} />
+        <Workspace problem={serializableProblem} pid={pid} />
       </SignedIn>
       
       <SignedOut>

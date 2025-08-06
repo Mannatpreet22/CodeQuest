@@ -8,16 +8,19 @@ import { vscodeDark } from "@uiw/codemirror-theme-vscode";
 import { javascript } from "@codemirror/lang-javascript";
 import EditorFooter from "./EditorFooter";
 import { Problem } from "@/utils/utils/types/problem";
+import { SerializableProblem } from "@/utils/utils/types/serializable";
 import { toast } from "react-toastify";
 import { problems } from "@/utils/utils/problems";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import useLocalStorage from "@/hooks/hooks/useLocalStorage";
+import { StorageService } from "@/utils/storage";
 import { python } from "@codemirror/lang-python";
 import { java } from "@codemirror/lang-java";
 import { cpp } from "@codemirror/lang-cpp";
 
 type PlaygroundProps = {
-	problem: Problem;
+	problem: SerializableProblem;
+	pid: string;
 	setSuccess: React.Dispatch<React.SetStateAction<boolean>>;
 	setSolved: React.Dispatch<React.SetStateAction<boolean>>;
 };
@@ -29,7 +32,7 @@ export interface ISettings {
 	language: string;
 }
 
-const Playground: React.FC<PlaygroundProps> = ({ problem, setSuccess, setSolved }) => {
+const Playground: React.FC<PlaygroundProps> = ({ problem, pid, setSuccess, setSolved }) => {
 	const [activeTestCaseId, setActiveTestCaseId] = useState<number>(0);
 	const [isConsoleOpen, setIsConsoleOpen] = useState<boolean>(true);
 	let [userCode, setUserCode] = useState<string>(problem.starterCode);
@@ -45,8 +48,6 @@ const Playground: React.FC<PlaygroundProps> = ({ problem, setSuccess, setSolved 
 	});
 
 	const router = useRouter();
-	const params = useParams();
-	const pid = params.pid as string;
 
 	const toggleConsole = () => {
 		setIsConsoleOpen(!isConsoleOpen);
@@ -56,7 +57,7 @@ const Playground: React.FC<PlaygroundProps> = ({ problem, setSuccess, setSolved 
 		try {
 			userCode = userCode.slice(userCode.indexOf(problem.starterFunctionName));
 			const cb = new Function(`return ${userCode}`)();
-			const handler = problems[pid as string].handlerFunction;
+			const handler = problems[pid].handlerFunction;
 
 			if (typeof handler === "function") {
 				const success = handler(cb);
@@ -71,12 +72,8 @@ const Playground: React.FC<PlaygroundProps> = ({ problem, setSuccess, setSolved 
 						setSuccess(false);
 					}, 4000);
 
-					// Save solved problem to localStorage
-					const solvedProblems = JSON.parse(localStorage.getItem('solvedProblems') || '[]');
-					if (!solvedProblems.includes(pid)) {
-						solvedProblems.push(pid);
-						localStorage.setItem('solvedProblems', JSON.stringify(solvedProblems));
-					}
+									// Save solved problem to localStorage
+					StorageService.addSolvedProblem(pid);
 					setSolved(true);
 				}
 			}
@@ -101,13 +98,13 @@ const Playground: React.FC<PlaygroundProps> = ({ problem, setSuccess, setSolved 
 	};
 
 	useEffect(() => {
-		const code = localStorage.getItem(`code-${pid}`);
-		setUserCode(code ? JSON.parse(code) : problem.starterCode);
+		const savedCode = StorageService.getUserCode(pid);
+		setUserCode(savedCode || problem.starterCode);
 	}, [pid, problem.starterCode]);
 
 	const onChange = (value: string) => {
 		setUserCode(value);
-		localStorage.setItem(`code-${pid}`, JSON.stringify(value));
+		StorageService.setUserCode(pid, value);
 	};
 
 	const getLanguageExtension = () => {

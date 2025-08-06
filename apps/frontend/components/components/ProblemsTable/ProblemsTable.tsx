@@ -5,13 +5,12 @@ import React, { useEffect, useState } from "react";
 import { BsCheckCircle } from "react-icons/bs";
 import { problems } from "@/utils/utils/problems";
 import { DBProblem } from "@/utils/utils/types/problem";
+import { StorageService } from "@/utils/storage";
 
-type ProblemsTableProps = {
-	setLoadingProblems: React.Dispatch<React.SetStateAction<boolean>>;
-};
+type ProblemsTableProps = {};
 
-const ProblemsTable: React.FC<ProblemsTableProps> = ({ setLoadingProblems }) => {
-	const problemsList = useGetProblems(setLoadingProblems);
+const ProblemsTable: React.FC<ProblemsTableProps> = () => {
+	const { problemsList, loading } = useGetProblems();
 	const solvedProblems = useGetSolvedProblems();
 
 	return (
@@ -58,12 +57,13 @@ const ProblemsTable: React.FC<ProblemsTableProps> = ({ setLoadingProblems }) => 
 };
 export default ProblemsTable;
 
-function useGetProblems(setLoadingProblems: React.Dispatch<React.SetStateAction<boolean>>) {
+function useGetProblems() {
 	const [problemsList, setProblemsList] = useState<DBProblem[]>([]);
+	const [loading, setLoading] = useState<boolean>(true);
 
 	useEffect(() => {
 		const getProblems = async () => {
-			setLoadingProblems(true);
+			setLoading(true);
 			// Convert problems object to DBProblem array and sort by order
 			const problemsArray: DBProblem[] = Object.keys(problems).map((key) => ({
 				id: key,
@@ -78,24 +78,20 @@ function useGetProblems(setLoadingProblems: React.Dispatch<React.SetStateAction<
 			}));
 			problemsArray.sort((a, b) => a.order - b.order);
 			setProblemsList(problemsArray);
-			setLoadingProblems(false);
+			setLoading(false);
 		};
 
 		getProblems();
-	}, [setLoadingProblems]);
-	return problemsList;
+	}, []);
+	return { problemsList, loading };
 }
 
 function useGetSolvedProblems() {
-	// Mock solved problems - replace with your preferred storage solution
 	const [solvedProblems, setSolvedProblems] = useState<string[]>([]);
 
 	useEffect(() => {
-		// Mock: load solved problems from localStorage
-		const savedSolvedProblems = localStorage.getItem('solvedProblems');
-		if (savedSolvedProblems) {
-			setSolvedProblems(JSON.parse(savedSolvedProblems));
-		}
+		const savedSolvedProblems = StorageService.getSolvedProblems();
+		setSolvedProblems(savedSolvedProblems);
 	}, []);
 
 	return solvedProblems;

@@ -1,8 +1,11 @@
-'use client';
-
+import type { Metadata } from 'next'
 import { problems } from '@/mockProblems/problem'
-import ProblemsTable from '@/components/components/ProblemsTable/ProblemsTable'
-import Navbar from '@/components/components/Navbar/Navbar'
+import { ProblemsTable, Navbar } from '@/components'
+
+export const metadata: Metadata = {
+  title: 'Practice Problems',
+  description: 'Browse and solve coding problems to improve your programming skills. Quality over quantity approach to mastering algorithms and data structures.',
+}
 
 export default function Home() {
   return (
@@ -32,7 +35,7 @@ export default function Home() {
               </th>
             </tr>
           </thead>
-          <ProblemsTable setLoadingProblems={() => {}} />
+          <ProblemsTable />
         </table>
       </div>
     </div>
