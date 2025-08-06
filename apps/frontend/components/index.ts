@@ -7,6 +7,7 @@ export { default as SettingsModal } from './components/Modals/SettingsModal';
 export { default as CircleSkeleton } from './components/Skeletons/CircleSkeleton';
 export { default as RectangleSkeleton } from './components/Skeletons/RectangleSkeleton';
 export { default as ToastProvider } from './ToastProvider';
+export { default as ClientProviders } from './ClientProviders';
 
 // Re-export workspace components
 export { default as Playground } from './components/Workspace/Playground/Playground';

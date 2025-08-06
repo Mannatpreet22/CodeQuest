@@ -1,7 +1,7 @@
 import { type Metadata } from 'next'
-import { ClerkProvider } from '@clerk/nextjs'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { ToastProvider } from '@/components'
+import ClientProviders from '@/components/ClientProviders'
 import 'react-toastify/dist/ReactToastify.css'
 import './globals.css'
 
@@ -59,13 +59,13 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <ClerkProvider>
-      <html lang="en">
-        <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html lang="en">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <ClientProviders>
           {children}
           <ToastProvider />
-        </body>
-      </html>
-    </ClerkProvider>
+        </ClientProviders>
+      </body>
+    </html>
   )
 }
