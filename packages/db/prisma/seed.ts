@@ -16,16 +16,8 @@ async function main() {
 
   console.log('🧹 Cleared existing data')
 
-  // Create a test user
-  const testUser = await prisma.user.create({
-    data: {
-      username: 'testuser',
-      email: 'test@example.com',
-      passwordHash: 'hashedpassword123'
-    }
-  })
-
-  console.log('👤 Created test user')
+  // Users will be created automatically via Clerk webhooks
+  console.log('👤 Users will be created via Clerk webhooks')
 
   // Question 1: Sum of Two Numbers
   const sumQuestion = await prisma.question.create({
@@ -46,9 +38,11 @@ Constraints:
 
   // Test cases for Sum of Two Numbers
   const sumTestCases = [
+    // Visible test cases (users can see these)
     {
       inputs: { a: 5, b: 3 },
       expected: 8,
+      isVisible: true,
       testCaseInputs: [
         { position: 0, name: 'a', value: 5 },
         { position: 1, name: 'b', value: 3 }
@@ -57,14 +51,17 @@ Constraints:
     {
       inputs: { a: -10, b: 20 },
       expected: 10,
+      isVisible: true,
       testCaseInputs: [
         { position: 0, name: 'a', value: -10 },
         { position: 1, name: 'b', value: 20 }
       ]
     },
+    // Hidden test cases (only executed during submission)
     {
       inputs: { a: 0, b: 0 },
       expected: 0,
+      isVisible: false,
       testCaseInputs: [
         { position: 0, name: 'a', value: 0 },
         { position: 1, name: 'b', value: 0 }
@@ -73,9 +70,19 @@ Constraints:
     {
       inputs: { a: 1000, b: 1000 },
       expected: 2000,
+      isVisible: false,
       testCaseInputs: [
         { position: 0, name: 'a', value: 1000 },
         { position: 1, name: 'b', value: 1000 }
+      ]
+    },
+    {
+      inputs: { a: -500, b: 300 },
+      expected: -200,
+      isVisible: false,
+      testCaseInputs: [
+        { position: 0, name: 'a', value: -500 },
+        { position: 1, name: 'b', value: 300 }
       ]
     }
   ]
@@ -85,6 +92,7 @@ Constraints:
       data: {
         inputs: testCase.inputs,
         expected: testCase.expected,
+        isVisible: testCase.isVisible,
         questionId: sumQuestion.id
       }
     })
@@ -187,9 +195,11 @@ Constraints:
 
   // Test cases for Find Maximum Number
   const maxTestCases = [
+    // Visible test cases
     {
       inputs: { arr: [3, 7, 2, 9, 1] },
       expected: 9,
+      isVisible: true,
       testCaseInputs: [
         { position: 0, name: 'arr', value: [3, 7, 2, 9, 1] }
       ]
@@ -197,15 +207,26 @@ Constraints:
     {
       inputs: { arr: [-5, -2, -10, -1] },
       expected: -1,
+      isVisible: true,
       testCaseInputs: [
         { position: 0, name: 'arr', value: [-5, -2, -10, -1] }
       ]
     },
+    // Hidden test cases
     {
       inputs: { arr: [42] },
       expected: 42,
+      isVisible: false,
       testCaseInputs: [
         { position: 0, name: 'arr', value: [42] }
+      ]
+    },
+    {
+      inputs: { arr: [100, 200, 50, 300, 150] },
+      expected: 300,
+      isVisible: false,
+      testCaseInputs: [
+        { position: 0, name: 'arr', value: [100, 200, 50, 300, 150] }
       ]
     }
   ]
@@ -215,6 +236,7 @@ Constraints:
       data: {
         inputs: testCase.inputs,
         expected: testCase.expected,
+        isVisible: testCase.isVisible,
         questionId: maxQuestion.id
       }
     })
@@ -300,9 +322,11 @@ Constraints:
 
   // Test cases for Reverse String
   const reverseTestCases = [
+    // Visible test cases
     {
       inputs: { str: "hello" },
       expected: "olleh",
+      isVisible: true,
       testCaseInputs: [
         { position: 0, name: 'str', value: "hello" }
       ]
@@ -310,15 +334,26 @@ Constraints:
     {
       inputs: { str: "world" },
       expected: "dlrow",
+      isVisible: true,
       testCaseInputs: [
         { position: 0, name: 'str', value: "world" }
       ]
     },
+    // Hidden test cases
     {
       inputs: { str: "a" },
       expected: "a",
+      isVisible: false,
       testCaseInputs: [
         { position: 0, name: 'str', value: "a" }
+      ]
+    },
+    {
+      inputs: { str: "programming" },
+      expected: "gnimmargorP",
+      isVisible: false,
+      testCaseInputs: [
+        { position: 0, name: 'str', value: "programming" }
       ]
     }
   ]
@@ -328,6 +363,7 @@ Constraints:
       data: {
         inputs: testCase.inputs,
         expected: testCase.expected,
+        isVisible: testCase.isVisible,
         questionId: reverseQuestion.id
       }
     })
@@ -415,9 +451,11 @@ Constraints:
 
   // Test cases for Check Even or Odd
   const evenOddTestCases = [
+    // Visible test cases
     {
       inputs: { num: 4 },
       expected: "Even",
+      isVisible: true,
       testCaseInputs: [
         { position: 0, name: 'num', value: 4 }
       ]
@@ -425,13 +463,16 @@ Constraints:
     {
       inputs: { num: 7 },
       expected: "Odd",
+      isVisible: true,
       testCaseInputs: [
         { position: 0, name: 'num', value: 7 }
       ]
     },
+    // Hidden test cases
     {
       inputs: { num: 0 },
       expected: "Even",
+      isVisible: false,
       testCaseInputs: [
         { position: 0, name: 'num', value: 0 }
       ]
@@ -439,8 +480,17 @@ Constraints:
     {
       inputs: { num: -3 },
       expected: "Odd",
+      isVisible: false,
       testCaseInputs: [
         { position: 0, name: 'num', value: -3 }
+      ]
+    },
+    {
+      inputs: { num: 1000 },
+      expected: "Even",
+      isVisible: false,
+      testCaseInputs: [
+        { position: 0, name: 'num', value: 1000 }
       ]
     }
   ]
@@ -450,6 +500,7 @@ Constraints:
       data: {
         inputs: testCase.inputs,
         expected: testCase.expected,
+        isVisible: testCase.isVisible,
         questionId: evenOddQuestion.id
       }
     })

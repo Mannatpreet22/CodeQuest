@@ -14,10 +14,12 @@ datasource db {
 }
 // // clerk
 model User {
-  id           String       @id @default(uuid())
-  username     String       @unique
+  id           String       @id // Clerk user ID
+  username     String?      // Optional username from Clerk
   email        String       @unique
-  passwordHash String       // Store a secure hash of the password
+  firstName    String?      // First name from Clerk
+  lastName     String?      // Last name from Clerk
+  imageUrl     String?      // Profile image from Clerk
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   
@@ -44,6 +46,7 @@ model TestCase {
   id           Int        @id @default(autoincrement())
   inputs       Json
   expected     Json
+  isVisible    Boolean    @default(true)  // true = visible to users, false = hidden test cases
 
   question     Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
   questionId   String
@@ -54,6 +57,7 @@ model TestCase {
   testCaseInputs TestCaseInput[]
 
   @@index([questionId])
+  @@index([questionId, isVisible])
 }
 
 model TestCaseInput {

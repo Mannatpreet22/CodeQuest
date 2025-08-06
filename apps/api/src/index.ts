@@ -3,15 +3,20 @@ import cors from 'cors'
 import { userRouter } from './routes/userRouter'
 import { questionsRouter } from './routes/questionsRouter'
 import { submitRouter } from './routes/submitRouter'
+import { webhookRouter } from './routes/webhookRouter'
 import { RedisManager } from '@repo/redis/client'
 
 const app = express()
 
 const PORT = 3000
 
-app.use(express.json())
-
 app.use(cors())
+
+// Webhook routes need raw body, so handle them before express.json()
+app.use('/api/webhooks', express.raw({ type: 'application/json' }), webhookRouter)
+
+// Regular JSON parsing for other routes
+app.use(express.json())
 
 // Health check endpoint
 app.get('/health', async (req: Request, res: Response) => {
