@@ -1,23 +1,24 @@
 'use client'
 
 import { ClerkProvider } from '@clerk/nextjs'
-import useHasMounted from '@/hooks/hooks/useHasMounted'
+import { Suspense } from 'react'
 
 export default function ClientProviders({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const hasMounted = useHasMounted()
-
-  if (!hasMounted) {
-    // Return a loading state or the children without Clerk during SSR
-    return <>{children}</>
-  }
-
   return (
-    <ClerkProvider>
-      {children}
+    <ClerkProvider
+      appearance={{
+        variables: {
+          colorPrimary: '#ff8c00', // brand-orange color
+        },
+      }}
+    >
+      <Suspense fallback={<div className="min-h-screen bg-dark-layer-1 flex items-center justify-center">Loading...</div>}>
+        {children}
+      </Suspense>
     </ClerkProvider>
   )
 }
