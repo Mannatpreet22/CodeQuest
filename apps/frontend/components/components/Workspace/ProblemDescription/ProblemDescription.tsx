@@ -10,6 +10,7 @@ import { BsCheck2Circle } from "react-icons/bs";
 import { TiStarOutline } from "react-icons/ti";
 import { toast } from "react-toastify";
 import { SubmissionRow, SubmissionsTable } from "./SubmissionTab";
+import { getProblemWithTestCases } from "@/hooks/hooks/getProblemData";
 
 type ProblemDescriptionProps = {
 	problem: SerializableProblem;
@@ -433,50 +434,53 @@ function useGetCurrentProblem(problemId: string) {
 	const [problemDifficultyClass, setProblemDifficultyClass] = useState<string>("");
 
 	useEffect(() => {
-		// Get problem data from localStorage or use mock data
 		const getCurrentProblem = async () => {
 			setLoading(true);
 			
-			let problemData;
-			if (typeof window !== 'undefined') {
-				// Try to get from localStorage first
-				const problemKey = `problem_${problemId}`;
-				const savedProblemData = localStorage.getItem(problemKey);
+			try {
+				// Fetch problem from database
+				const problemData = await getProblemWithTestCases(problemId);
 				
-				if (savedProblemData) {
-					problemData = JSON.parse(savedProblemData);
+				if (problemData) {
+					// Get like/dislike data from localStorage for now
+					let userInteractionData = { likes: 0, dislikes: 0 };
+					if (typeof window !== 'undefined') {
+						const problemKey = `problem_${problemId}`;
+						const savedData = localStorage.getItem(problemKey);
+						if (savedData) {
+							userInteractionData = JSON.parse(savedData);
+						} else {
+							// Use mock data if not in localStorage
+							userInteractionData = mockProblemData[problemId as keyof typeof mockProblemData] || { likes: 0, dislikes: 0 };
+							localStorage.setItem(problemKey, JSON.stringify(userInteractionData));
+						}
+					} else {
+						// Use mock data on server side
+						userInteractionData = mockProblemData[problemId as keyof typeof mockProblemData] || { likes: 0, dislikes: 0 };
+					}
+					
+					// Combine database problem with user interaction data
+					setCurrentProblem({
+						...problemData,
+						...userInteractionData,
+						// Mock difficulty for now - you can add this to your database schema later
+						difficulty: "Easy"
+					});
+					
+					// Set difficulty class - using mock difficulty for now
+					setProblemDifficultyClass("bg-dark-green-s text-dark-green-s");
 				} else {
-					// Use mock data if not in localStorage
-					problemData = mockProblemData[problemId as keyof typeof mockProblemData] || { likes: 0, dislikes: 0 };
-					localStorage.setItem(problemKey, JSON.stringify(problemData));
+					console.error('Failed to fetch problem from database');
+					setCurrentProblem(null);
 				}
-			} else {
-				// Use mock data on server side
-				problemData = mockProblemData[problemId as keyof typeof mockProblemData] || { likes: 0, dislikes: 0 };
+			} catch (error) {
+				console.error('Error fetching problem:', error);
+				setCurrentProblem(null);
+			} finally {
+				setLoading(false);
 			}
-			
-			// Get problem details from the problems array
-			const { problems: mockProblems } = await import("@/mockProblems/problem");
-			const problemDetails = mockProblems.find((p: any) => p.id === problemId);
-			
-			if (problemDetails) {
-				setCurrentProblem({ 
-					...problemDetails, 
-					...problemData 
-				});
-				
-				// Set difficulty class
-				setProblemDifficultyClass(
-					problemDetails.difficulty === "Easy"
-						? "bg-olive text-olive"
-						: problemDetails.difficulty === "Medium"
-						? "bg-dark-yellow text-dark-yellow"
-						: " bg-dark-pink text-dark-pink"
-				);
-			}
-			
-			setLoading(false);
 		};
+		
 		getCurrentProblem();
 	}, [problemId]);
 

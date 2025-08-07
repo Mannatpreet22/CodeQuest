@@ -78,3 +78,26 @@ questionsRouter.get('/question/:id/all-testcases', async (req, res) => {
     res.json(question)
 })
 
+// Get template code for a specific problem and language
+questionsRouter.get('/template/:id/:language', async (req, res) => {
+    const {id, language} = req.params
+    if (!id || !language) {
+        res.status(400).json({error : 'No id or language provided'})
+        return
+    }
+    
+    const templateCode = await prisma.templateCode.findFirst({
+        where: {
+            questionId: id as string,
+            programmingLanguageId: language as string
+        }
+    })
+    
+    if (!templateCode) {
+        res.status(404).json({error : 'Template code not found'})
+        return
+    }
+    
+    res.json(templateCode)
+})
+

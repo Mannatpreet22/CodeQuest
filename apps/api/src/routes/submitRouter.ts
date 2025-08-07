@@ -20,6 +20,15 @@ submitRouter.use(rateLimiter)
 
 // Test code execution (doesn't save to database)
 submitRouter.post('/run', async (req: Request, res: Response) => {
+    // const {userId} = req.body
+    // const user = await prisma.user.findUnique({
+    //     where: {id: userId}
+    // })
+    // if (!user) {
+    //     res.status(401).json({success: false, message: 'Unauthorized'})
+    //     return
+    // }
+
     const data: questionSubmission = req.body
     const parseResult = parsedQuestionSubmission.safeParse(data)
     
@@ -70,6 +79,15 @@ submitRouter.post('/run', async (req: Request, res: Response) => {
 })
 
 submitRouter.post('/submit', async (req: Request, res: Response) => {
+    // const {userId} = req.body
+    // const user = await prisma.user.findUnique({
+    //     where: {id: userId}
+    // })
+    // if (!user) {
+    //     res.status(401).json({success: false, message: 'Unauthorized'})
+    //     return
+    // }
+
     const data: questionSubmission = req.body
     const parseResult = parsedQuestionSubmission.safeParse(data)
     

@@ -3,9 +3,9 @@
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import { BsCheckCircle } from "react-icons/bs";
-import { problems } from "@/utils/utils/problems";
 import { DBProblem } from "@/utils/utils/types/problem";
 import { StorageService } from "@/utils/storage";
+import { getAllQuestions } from "@/hooks/hooks/getProblemData";
 
 type ProblemsTableProps = {};
 
@@ -64,21 +64,34 @@ function useGetProblems() {
 	useEffect(() => {
 		const getProblems = async () => {
 			setLoading(true);
-			// Convert problems object to DBProblem array and sort by order
-			const problemsArray: DBProblem[] = Object.keys(problems).map((key) => ({
-				id: key,
-				title: problems[key].title,
-				category: "Array", // Mock category
-				difficulty: "Medium", // Mock difficulty
-				likes: 0,
-				dislikes: 0,
-				order: problems[key].order,
-				videoId: undefined,
-				link: undefined,
-			}));
-			problemsArray.sort((a, b) => a.order - b.order);
-			setProblemsList(problemsArray);
-			setLoading(false);
+			try {
+				// Fetch problems from database
+				const questions = await getAllQuestions();
+				
+				if (questions) {
+					// Convert database questions to DBProblem format
+					const problemsArray: DBProblem[] = questions.map((question, index) => ({
+						id: question.id,
+						title: question.title,
+						category: "Array", // Mock category - you can enhance this later
+						difficulty: ["Easy", "Medium", "Hard"][index % 3] as "Easy" | "Medium" | "Hard", // Mock difficulty
+						likes: 0,
+						dislikes: 0,
+						order: index + 1,
+						videoId: undefined,
+						link: undefined,
+					}));
+					setProblemsList(problemsArray);
+				} else {
+					console.error('Failed to fetch problems from database');
+					setProblemsList([]);
+				}
+			} catch (error) {
+				console.error('Error fetching problems:', error);
+				setProblemsList([]);
+			} finally {
+				setLoading(false);
+			}
 		};
 
 		getProblems();

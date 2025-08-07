@@ -6,8 +6,10 @@ import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { BsList } from "react-icons/bs";
 import Timer from "../Timer/Timer";
 import { useRouter, useParams, usePathname } from "next/navigation";
-import { problems } from "@/utils/utils/problems";
+// Note: Problem navigation is temporarily disabled while transitioning to database
+// import { problems } from "@/utils/utils/problems";
 import { Problem } from "@/utils/utils/types/problem";
+import { toast } from "react-toastify";
 import {
   SignInButton,
   SignUpButton,
@@ -29,23 +31,14 @@ const Navbar: React.FC<NavbarProps> = ({ problemPage }) => {
 	const isOnProblemPage = problemPage || pathname?.startsWith('/problems/');
 
 	const handleProblemChange = (isForward: boolean) => {
-		const pid = params.pid as string;
-		const { order } = problems[pid] as Problem;
-		const direction = isForward ? 1 : -1;
-		const nextProblemOrder = order + direction;
-		const nextProblemKey = Object.keys(problems).find((key) => problems[key].order === nextProblemOrder);
-
-		if (isForward && !nextProblemKey) {
-			const firstProblemKey = Object.keys(problems).find((key) => problems[key].order === 1);
-			router.push(`/problems/${firstProblemKey}`);
-		} else if (!isForward && !nextProblemKey) {
-			const lastProblemKey = Object.keys(problems).find(
-				(key) => problems[key].order === Object.keys(problems).length
-			);
-			router.push(`/problems/${lastProblemKey}`);
-		} else {
-			router.push(`/problems/${nextProblemKey}`);
-		}
+		// TODO: Implement database-driven navigation
+		// For now, navigation between problems is disabled
+		console.log('Problem navigation temporarily disabled - transitioning to database');
+		toast.info('Problem navigation will be available once database integration is complete', {
+			position: "top-center",
+			autoClose: 3000,
+			theme: "dark",
+		});
 	};
 
 	// If it's a problem page, use dark theme styling
