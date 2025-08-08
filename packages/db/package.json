@@ -1,8 +1,9 @@
 {
   "name": "@repo/db",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
+    "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1",
     "seed": "npx tsx prisma/seed.ts",
     "db:seed": "npx tsx prisma/seed.ts"
@@ -12,11 +13,12 @@
   "license": "ISC",
   "description": "",
   "exports": {
-    "./client": "./index.ts"
+    "./client": "./dist/index.js"
   },
   "devDependencies": {
     "prisma": "^6.5.0",
-    "tsx": "^4.19.2"
+    "tsx": "^4.19.2",
+    "typescript": "5.8.2"
   },
   "dependencies": {
     "@prisma/client": "^6.5.0",

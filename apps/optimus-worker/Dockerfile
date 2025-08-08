@@ -1,6 +1,9 @@
 # Use Node.js LTS (Latest Stable)
 FROM node:18-alpine AS base
 
+# Install curl for potential health checks
+RUN apk add --no-cache curl
+
 # Install dependencies only when needed
 FROM base AS deps
 WORKDIR /app
@@ -44,5 +47,7 @@ COPY --from=builder /app/packages ./packages
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 codequest
 USER codequest
+
+EXPOSE 3001
 
 CMD ["node", "dist/index.js"]

@@ -1,8 +1,9 @@
 {
   "name": "@repo/redis",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/RedisManager.js",
   "scripts": {
+    "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -15,7 +16,10 @@
     "dotenv": "^17.2.1",
     "redis": "^1.0.0"
   },
+  "devDependencies": {
+    "typescript": "5.8.2"
+  },
   "exports": {
-    "./client": "./src/RedisManager.ts"
+    "./client": "./dist/RedisManager.js"
   }
 }

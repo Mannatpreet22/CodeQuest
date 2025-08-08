@@ -4,7 +4,6 @@
 import Link from "next/link";
 import React, { useEffect, useMemo, useState } from "react";
 import { BsCheckCircle } from "react-icons/bs";
-import { FaCalendarAlt } from "react-icons/fa";
 import { DBProblem } from "@/utils/utils/types/problem";
 import { StorageService } from "@/utils/storage";
 import { getAllQuestions } from "@/hooks/hooks/getProblemData";

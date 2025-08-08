@@ -22,7 +22,7 @@ userRouter.get('/solved-problems', async (req: Request, res: Response) => {
             distinct: ['questionId']
         });
 
-        const solvedProblemIds = solvedProblems.map(sub => sub.questionId);
+        const solvedProblemIds = solvedProblems.map((sub: any) => sub.questionId);
         res.status(200).json(solvedProblemIds);
     } catch (error) {
         console.error('Error fetching solved problems:', error);
