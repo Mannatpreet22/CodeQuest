@@ -10,182 +10,114 @@ import { BsCheck2Circle } from "react-icons/bs";
 import { TiStarOutline } from "react-icons/ti";
 import { toast } from "react-toastify";
 import { SubmissionRow, SubmissionsTable } from "./SubmissionTab";
-import { getProblemWithTestCases } from "@/hooks/hooks/getProblemData";
+import { 
+    getProblemWithTestCases, 
+    getUserProblemSubmissions,
+    getUserInteraction,
+    getQuestionStats,
+    toggleLike,
+    toggleDislike,
+    toggleStar
+} from "@/hooks/hooks/getProblemData";
+import { useUser } from "@clerk/nextjs";
 
 type ProblemDescriptionProps = {
 	problem: SerializableProblem;
 	_solved: boolean;
 };
 
-// Mock problem data with likes/dislikes
-const mockProblemData = {
-	"two-sum": { likes: 1200, dislikes: 50 },
-	"reverse-linked-list": { likes: 800, dislikes: 30 },
-	"jump-game": { likes: 950, dislikes: 40 },
-	"valid-parentheses": { likes: 1100, dislikes: 45 },
-	"search-a-2d-matrix": { likes: 750, dislikes: 35 },
-	"container-with-most-water": { likes: 900, dislikes: 38 },
-	"merge-intervals": { likes: 850, dislikes: 32 },
-	"maximum-depth-of-binary-tree": { likes: 700, dislikes: 25 },
-	"best-time-to-buy-and-sell-stock": { likes: 1300, dislikes: 55 },
-	"subsets": { likes: 600, dislikes: 28 },
-};
-
-
-
 const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem, _solved }) => {
+	const { user } = useUser();
 	const { currentProblem, loading, problemDifficultyClass, setCurrentProblem } = useGetCurrentProblem(problem.id);
-	const { liked, disliked, solved, setData, starred } = useGetUsersDataOnProblem(problem.id);
+	const { liked, disliked, starred, solved, setData } = useGetUsersDataOnProblem(problem.id, user?.id);
 	const [updating, setUpdating] = useState(false);
 	const [activeTab, setActiveTab] = useState<'description' | 'submissions'>('description');
 	const [expandedSubmission, setExpandedSubmission] = useState<number | null>(null);
+	const [submissions, setSubmissions] = useState<any[]>([]);
+	const [submissionsLoading, setSubmissionsLoading] = useState(false);
 
-	// Mock submissions data
-	const mockSubmissions = [
-		{
-			id: 1,
-			status: 'Accepted',
-			language: 'Python3',
-			runtime: '2 ms',
-			memory: '19.1 MB',
-			date: 'Jul 25, 2025',
-			code: `def twoSum(nums, target):
-    seen = {}
-    for i, num in enumerate(nums):
-        complement = target - num
-        if complement in seen:
-            return [seen[complement], i]
-        seen[num] = i
-    return []`,
-			hasNotes: false
-		},
-		{
-			id: 2,
-			status: 'Compile Error',
-			language: 'C++',
-			runtime: 'N/A',
-			memory: 'N/A',
-			date: 'Mar 18, 2025',
-			code: `class Solution {
-public:
-    vector<int> twoSum(vector<int>& nums, int target) {
-        // Missing semicolon here
-        vector<int> result
-        for(int i = 0; i < nums.size(); i++) {
-            for(int j = i + 1; j < nums.size(); j++) {
-                if(nums[i] + nums[j] == target) {
-                    result.push_back(i);
-                    result.push_back(j);
-                    return result;
-                }
-            }
-        }
-        return result;
-    }
-};`,
-			hasNotes: true
-		},
-		{
-			id: 3,
-			status: 'Accepted',
-			language: 'C++',
-			runtime: '4 ms',
-			memory: '14.7 MB',
-			date: 'Dec 21, 2024',
-			code: `class Solution {
-public:
-    vector<int> twoSum(vector<int>& nums, int target) {
-        unordered_map<int, int> seen;
-        for(int i = 0; i < nums.size(); i++) {
-            int complement = target - nums[i];
-            if(seen.find(complement) != seen.end()) {
-                return {seen[complement], i};
-            }
-            seen[nums[i]] = i;
-        }
-        return {};
-    }
-};`,
-			hasNotes: false
-		},
-		{
-			id: 4,
-			status: 'Accepted',
-			language: 'C++',
-			runtime: '11 ms',
-			memory: '11.1 MB',
-			date: 'Dec 26, 2023',
-			code: `class Solution {
-public:
-    vector<int> twoSum(vector<int>& nums, int target) {
-        for(int i = 0; i < nums.size(); i++) {
-            for(int j = i + 1; j < nums.size(); j++) {
-                if(nums[i] + nums[j] == target) {
-                    return {i, j};
-                }
-            }
-        }
-        return {};
-    }
-};`,
-			hasNotes: false
+	// Fetch submissions when tab changes to submissions
+	useEffect(() => {
+		if (activeTab === 'submissions') {
+			fetchSubmissions();
 		}
-	];
+	}, [activeTab, problem.id]);
+
+	// Listen for submission refresh events
+	useEffect(() => {
+		const handleSubmissionRefresh = () => {
+			if (activeTab === 'submissions') {
+				fetchSubmissions();
+			}
+		};
+
+		window.addEventListener('submission-refresh', handleSubmissionRefresh);
+		return () => {
+			window.removeEventListener('submission-refresh', handleSubmissionRefresh);
+		};
+	}, [activeTab]);
+
+	const fetchSubmissions = async () => {
+		if (!user?.id) return;
+		
+		setSubmissionsLoading(true);
+		try {
+			const response = await getUserProblemSubmissions(user.id, problem.id);
+			if (response.success && response.data) {
+				// Transform the data to match the expected format
+				const transformedSubmissions = response.data.map((submission: any) => ({
+					id: submission.id,
+					status: submission.status === 'AC' ? 'Accepted' : 
+							submission.status === 'WA' ? 'Wrong Answer' :
+							submission.status === 'TLE' ? 'Time Limit Exceeded' :
+							submission.status === 'CE' ? 'Compile Error' :
+							submission.status === 'RE' ? 'Runtime Error' :
+							submission.status,
+					language: submission.language,
+					runtime: submission.runtime ? `${submission.runtime} ms` : 'N/A',
+					memory: submission.memoryUsed ? `${(submission.memoryUsed / 1024).toFixed(1)} MB` : 'N/A',
+					date: new Date(submission.createdAt).toLocaleDateString('en-US', {
+						year: 'numeric',
+						month: 'short',
+						day: 'numeric'
+					}),
+					code: submission.codeText,
+					hasNotes: false // We can add notes functionality later
+				}));
+				setSubmissions(transformedSubmissions);
+			} else {
+				setSubmissions([]);
+			}
+		} catch (error) {
+			console.error('Error fetching submissions:', error);
+			setSubmissions([]);
+		} finally {
+			setSubmissionsLoading(false);
+		}
+	};
 
 	const handleLike = async () => {
-		if (updating) return;
-		setUpdating(true);
-		
-		try {
-			if (typeof window === 'undefined') return;
-			
-			const savedUser = localStorage.getItem('user');
-			if (!savedUser) {
+		if (updating || !user?.id) {
+			if (!user?.id) {
 				toast.error("Please sign in to like problems", { position: "top-center", autoClose: 3000, theme: "dark" });
-				return;
 			}
-			
-			const user = JSON.parse(savedUser);
-			const userData = {
-				...user,
-				likedProblems: liked 
-					? user.likedProblems.filter((id: string) => id !== problem.id)
-					: disliked 
-					? [...user.likedProblems, problem.id]
-					: [...user.likedProblems, problem.id],
-				dislikedProblems: disliked 
-					? user.dislikedProblems.filter((id: string) => id !== problem.id)
-					: user.dislikedProblems
-			};
-			
-			localStorage.setItem('user', JSON.stringify(userData));
-			
-			// Update problem likes/dislikes in localStorage
-			const problemKey = `problem_${problem.id}`;
-			const currentProblemData = mockProblemData[problem.id as keyof typeof mockProblemData] || { likes: 0, dislikes: 0 };
-			
-			let newLikes = currentProblemData.likes;
-			let newDislikes = currentProblemData.dislikes;
-			
-			if (liked) {
-				newLikes -= 1;
-			} else if (disliked) {
-				newLikes += 1;
-				newDislikes -= 1;
-			} else {
-				newLikes += 1;
-			}
-			
-			localStorage.setItem(problemKey, JSON.stringify({ likes: newLikes, dislikes: newDislikes }));
-			
-			setCurrentProblem((prev: any) => 
-				prev ? { ...prev, likes: newLikes, dislikes: newDislikes } : null
-			);
+			return;
+		}
+		
+		setUpdating(true);
+		try {
+			const result = await toggleLike(problem.id, user.id);
 			setData((prev: any) => ({ 
 				...prev, 
-				liked: !liked, 
-				disliked: disliked ? false : prev.disliked 
+				liked: result.liked, 
+				disliked: result.disliked 
 			}));
+			
+			// Refresh question stats
+			const stats = await getQuestionStats(problem.id);
+			setCurrentProblem((prev: any) => 
+				prev ? { ...prev, likes: stats.likes, dislikes: stats.dislikes } : null
+			);
 			
 		} catch (error) {
 			toast.error("Failed to update like", { position: "top-center", autoClose: 3000, theme: "dark" });
@@ -195,59 +127,27 @@ public:
 	};
 
 	const handleDislike = async () => {
-		if (updating) return;
-		setUpdating(true);
-		
-		try {
-			if (typeof window === 'undefined') return;
-			
-			const savedUser = localStorage.getItem('user');
-			if (!savedUser) {
+		if (updating || !user?.id) {
+			if (!user?.id) {
 				toast.error("Please sign in to dislike problems", { position: "top-center", autoClose: 3000, theme: "dark" });
-				return;
 			}
-			
-			const user = JSON.parse(savedUser);
-			const userData = {
-				...user,
-				dislikedProblems: disliked 
-					? user.dislikedProblems.filter((id: string) => id !== problem.id)
-					: liked 
-					? [...user.dislikedProblems, problem.id]
-					: [...user.dislikedProblems, problem.id],
-				likedProblems: liked 
-					? user.likedProblems.filter((id: string) => id !== problem.id)
-					: user.likedProblems
-			};
-			
-			localStorage.setItem('user', JSON.stringify(userData));
-			
-			// Update problem likes/dislikes in localStorage
-			const problemKey = `problem_${problem.id}`;
-			const currentProblemData = mockProblemData[problem.id as keyof typeof mockProblemData] || { likes: 0, dislikes: 0 };
-			
-			let newLikes = currentProblemData.likes;
-			let newDislikes = currentProblemData.dislikes;
-			
-			if (disliked) {
-				newDislikes -= 1;
-			} else if (liked) {
-				newDislikes += 1;
-				newLikes -= 1;
-			} else {
-				newDislikes += 1;
-			}
-			
-			localStorage.setItem(problemKey, JSON.stringify({ likes: newLikes, dislikes: newDislikes }));
-			
-			setCurrentProblem((prev: any) => 
-				prev ? { ...prev, likes: newLikes, dislikes: newDislikes } : null
-			);
+			return;
+		}
+		
+		setUpdating(true);
+		try {
+			const result = await toggleDislike(problem.id, user.id);
 			setData((prev: any) => ({ 
 				...prev, 
-				disliked: !disliked, 
-				liked: liked ? false : prev.liked 
+				disliked: result.disliked, 
+				liked: result.liked 
 			}));
+			
+			// Refresh question stats
+			const stats = await getQuestionStats(problem.id);
+			setCurrentProblem((prev: any) => 
+				prev ? { ...prev, likes: stats.likes, dislikes: stats.dislikes } : null
+			);
 			
 		} catch (error) {
 			toast.error("Failed to update dislike", { position: "top-center", autoClose: 3000, theme: "dark" });
@@ -257,28 +157,23 @@ public:
 	};
 
 	const handleStar = async () => {
-		if (updating) return;
-		setUpdating(true);
-
-		try {
-			if (typeof window === 'undefined') return;
-			
-			const savedUser = localStorage.getItem('user');
-			if (!savedUser) {
+		if (updating || !user?.id) {
+			if (!user?.id) {
 				toast.error("Please sign in to star problems", { position: "top-center", autoClose: 3000, theme: "dark" });
-				return;
 			}
+			return;
+		}
+		
+		setUpdating(true);
+		try {
+			const result = await toggleStar(problem.id, user.id);
+			setData((prev: any) => ({ ...prev, starred: result.starred }));
 			
-			const user = JSON.parse(savedUser);
-			const userData = {
-				...user,
-				starredProblems: starred 
-					? user.starredProblems.filter((id: string) => id !== problem.id)
-					: [...user.starredProblems, problem.id]
-			};
-			
-			localStorage.setItem('user', JSON.stringify(userData));
-			setData((prev: any) => ({ ...prev, starred: !starred }));
+			// Refresh question stats
+			const stats = await getQuestionStats(problem.id);
+			setCurrentProblem((prev: any) => 
+				prev ? { ...prev, stars: stats.stars } : null
+			);
 			
 		} catch (error) {
 			toast.error("Failed to update star", { position: "top-center", autoClose: 3000, theme: "dark" });
@@ -288,20 +183,24 @@ public:
 	};
 
 	return (
-		<div className='bg-dark-layer-1'>
-			{/* TAB */}
-			<div className='flex h-11 w-full items-center pt-2 bg-dark-layer-2 text-white overflow-x-hidden'>
+		<div className='bg-dark-layer-1 h-full flex flex-col'>
+			{/* Enhanced Tab Navigation */}
+			<div className='flex h-12 w-full items-center pt-2 bg-dark-layer-2 text-white overflow-x-hidden border-b border-dark-divider-border-2'>
 				<div 
-					className={`rounded-t-[5px] px-5 py-[10px] text-xs cursor-pointer ${
-						activeTab === 'description' ? 'bg-dark-layer-1' : 'bg-dark-layer-2'
+					className={`rounded-t-lg px-6 py-3 text-sm font-medium cursor-pointer transition-all duration-200 ${
+						activeTab === 'description' 
+							? 'bg-dark-layer-1 text-white border-b-2 border-dark-blue-s' 
+							: 'bg-dark-layer-2 text-dark-gray-6 hover:text-white hover:bg-dark-fill-3'
 					}`}
 					onClick={() => setActiveTab('description')}
 				>
 					Description
 				</div>
 				<div 
-					className={`rounded-t-[5px] px-5 py-[10px] text-xs cursor-pointer ${
-						activeTab === 'submissions' ? 'bg-dark-layer-1' : 'bg-dark-layer-2'
+					className={`rounded-t-lg px-6 py-3 text-sm font-medium cursor-pointer transition-all duration-200 ${
+						activeTab === 'submissions' 
+							? 'bg-dark-layer-1 text-white border-b-2 border-dark-blue-s' 
+							: 'bg-dark-layer-2 text-dark-gray-6 hover:text-white hover:bg-dark-fill-3'
 					}`}
 					onClick={() => setActiveTab('submissions')}
 				>
@@ -309,98 +208,158 @@ public:
 				</div>
 			</div>
 
-			<div className='flex px-0 py-4 h-[calc(100vh-94px)] overflow-y-auto'>
-				<div className='px-5'>
-					{/* Problem heading */}
+			<div className='flex px-0 py-6 flex-1 overflow-y-auto problem-description-scroll'>
+				<div className='px-6 w-full max-w-4xl mx-auto'>
+					{/* Enhanced Problem Header */}
 					<div className='w-full'>
-						<div className='flex space-x-4'>
-							<div className='flex-1 mr-2 text-lg text-white font-medium'>{problem?.title}</div>
-						</div>
-						{!loading && currentProblem && (
-							<div className='flex items-center mt-3'>
-								<div
-									className={`${problemDifficultyClass} inline-block rounded-[21px] bg-opacity-[.15] px-2.5 py-1 text-xs font-medium capitalize `}
-								>
-									{currentProblem.difficulty}
+						<div className='flex flex-col space-y-4'>
+							{/* Title and Difficulty */}
+							<div className='flex items-start justify-between'>
+								<div className='flex-1'>
+									<h1 className='text-2xl font-bold text-white mb-3 leading-tight'>{problem?.title}</h1>
+									{!loading && currentProblem && (
+										<div className='flex items-center space-x-4'>
+											<div className={`${problemDifficultyClass} inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold capitalize shadow-sm backdrop-blur-sm`}>
+												{currentProblem.difficulty}
+											</div>
+											{(solved || _solved) && (
+												<div className='flex items-center space-x-2 text-green-400'>
+													<BsCheck2Circle className='text-xl' />
+													<span className='text-sm font-medium'>Solved</span>
+												</div>
+											)}
+										</div>
+									)}
 								</div>
-								{(solved || _solved) && (
-									<div className='rounded p-[3px] ml-4 text-lg transition-colors duration-200 text-green-s text-dark-green-s'>
-										<BsCheck2Circle />
+							</div>
+
+							{/* Enhanced Action Buttons */}
+							{!loading && currentProblem && (
+								<div className='flex items-center space-x-2 pt-2 border-t border-dark-divider-border-2'>
+									<div
+										className='flex items-center space-x-2 cursor-pointer hover:bg-dark-fill-3 rounded-lg px-3 py-2 transition-all duration-200 text-dark-gray-6 hover:text-white'
+										onClick={handleLike}
+									>
+										{liked && !updating && <AiFillLike className='text-xl text-dark-blue-s' />}
+										{!liked && !updating && <AiFillLike className='text-xl' />}
+										{updating && <AiOutlineLoading3Quarters className='text-xl animate-spin' />}
+										<span className='text-sm font-medium'>{currentProblem.likes || 0}</span>
 									</div>
+									<div
+										className='flex items-center space-x-2 cursor-pointer hover:bg-dark-fill-3 rounded-lg px-3 py-2 transition-all duration-200 text-dark-gray-6 hover:text-white'
+										onClick={handleDislike}
+									>
+										{disliked && !updating && <AiFillDislike className='text-xl text-dark-blue-s' />}
+										{!disliked && !updating && <AiFillDislike className='text-xl' />}
+										{updating && <AiOutlineLoading3Quarters className='text-xl animate-spin' />}
+										<span className='text-sm font-medium'>{currentProblem.dislikes || 0}</span>
+									</div>
+									<div
+										className='cursor-pointer hover:bg-dark-fill-3 rounded-lg p-2 transition-all duration-200 text-dark-gray-6 hover:text-white'
+										onClick={handleStar}
+									>
+										{starred && !updating && <AiFillStar className='text-2xl text-dark-yellow' />}
+										{!starred && !updating && <TiStarOutline className='text-2xl' />}
+										{updating && <AiOutlineLoading3Quarters className='text-2xl animate-spin' />}
+									</div>
+								</div>
+							)}
+
+							{loading && (
+								<div className='mt-4 flex space-x-3'>
+									<RectangleSkeleton />
+									<CircleSkeleton />
+									<RectangleSkeleton />
+									<RectangleSkeleton />
+									<CircleSkeleton />
+								</div>
+							)}
+						</div>
+
+						{/* Submissions Tab Content */}
+						{activeTab === 'submissions' && (
+							<div className='mt-8'>
+								<div className='flex justify-between items-center mb-6'>
+									<h3 className='text-xl font-semibold text-white'>Your Submissions</h3>
+									<button
+										onClick={fetchSubmissions}
+										disabled={submissionsLoading}
+										className='flex items-center space-x-2 px-4 py-2 bg-dark-fill-3 hover:bg-dark-fill-2 text-white text-sm rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-dark-divider-border-2'
+									>
+										{submissionsLoading ? (
+											<>
+												<div className='animate-spin rounded-full h-4 w-4 border-b-2 border-white'></div>
+												<span>Refreshing...</span>
+											</>
+										) : (
+											<>
+												<svg className='w-4 h-4' fill='currentColor' viewBox='0 0 20 20'>
+													<path fillRule='evenodd' d='M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z' clipRule='evenodd' />
+												</svg>
+												<span>Refresh</span>
+											</>
+										)}
+									</button>
+								</div>
+								{submissionsLoading ? (
+									<div className='flex items-center justify-center py-12'>
+										<div className='animate-spin rounded-full h-8 w-8 border-b-2 border-white'></div>
+										<span className='ml-3 text-white'>Loading submissions...</span>
+									</div>
+								) : submissions.length === 0 ? (
+									<div className='text-center py-12'>
+										<div className='text-gray-400 text-lg mb-2'>No submissions yet</div>
+										<div className='text-gray-500 text-sm'>Submit your solution to see it here</div>
+									</div>
+								) : (
+									<SubmissionsTable
+										submissions={submissions}
+										expandedSubmission={expandedSubmission}
+										setExpandedSubmission={setExpandedSubmission}
+									/>
 								)}
-								<div
-									className='flex items-center cursor-pointer hover:bg-dark-fill-3 space-x-1 rounded p-[3px]  ml-4 text-lg transition-colors duration-200 text-dark-gray-6'
-									onClick={handleLike}
-								>
-									{liked && !updating && <AiFillLike className='text-dark-blue-s' />}
-									{!liked && !updating && <AiFillLike />}
-									{updating && <AiOutlineLoading3Quarters className='animate-spin' />}
-
-									<span className='text-xs'>{currentProblem.likes}</span>
-								</div>
-								<div
-									className='flex items-center cursor-pointer hover:bg-dark-fill-3 space-x-1 rounded p-[3px]  ml-4 text-lg transition-colors duration-200 text-green-s text-dark-gray-6'
-									onClick={handleDislike}
-								>
-									{disliked && !updating && <AiFillDislike className='text-dark-blue-s' />}
-									{!disliked && !updating && <AiFillDislike />}
-									{updating && <AiOutlineLoading3Quarters className='animate-spin' />}
-
-									<span className='text-xs'>{currentProblem.dislikes}</span>
-								</div>
-								<div
-									className='cursor-pointer hover:bg-dark-fill-3  rounded p-[3px]  ml-4 text-xl transition-colors duration-200 text-green-s text-dark-gray-6 '
-									onClick={handleStar}
-								>
-									{starred && !updating && <AiFillStar className='text-dark-yellow' />}
-									{!starred && !updating && <TiStarOutline />}
-									{updating && <AiOutlineLoading3Quarters className='animate-spin' />}
-								</div>
 							</div>
 						)}
 
-						{loading && (
-							<div className='mt-3 flex space-x-2'>
-								<RectangleSkeleton />
-								<CircleSkeleton />
-								<RectangleSkeleton />
-								<RectangleSkeleton />
-								<CircleSkeleton />
-							</div>
-						)}
-
-            {activeTab === 'submissions' && (
-              <div className='mt-4'>
-                <SubmissionsTable
-                  submissions={mockSubmissions}
-                  expandedSubmission={expandedSubmission}
-                  setExpandedSubmission={setExpandedSubmission}
-                />
-              </div>
-            )}
-
+						{/* Enhanced Description Tab Content */}
 						{activeTab === 'description' && (
-							<>
-								{/* Problem Statement(paragraphs) */}
-								<div className='text-white text-sm'>
-									<div dangerouslySetInnerHTML={{ __html: problem.problemStatement }} />
+							<div className='mt-8 space-y-8'>
+								{/* Problem Statement */}
+								<div className='bg-dark-layer-2 rounded-lg p-6 border border-dark-divider-border-2'>
+									<h2 className='text-lg font-semibold text-white mb-4 flex items-center'>
+										<span className='w-2 h-2 bg-dark-blue-s rounded-full mr-3'></span>
+										Problem Statement
+									</h2>
+									<div className='text-white text-base leading-relaxed prose prose-invert max-w-none'>
+										<div dangerouslySetInnerHTML={{ __html: problem.problemStatement }} />
+									</div>
 								</div>
 
 								{/* Examples */}
-								<div className='mt-4'>
-									{problem.examples.map((example, index) => (
-										<div key={example.id}>
-											<p className='font-medium text-white '>Example {index + 1}: </p>
-											{example.img && <img src={example.img} alt='' className='mt-3' />}
+								<div className='space-y-6'>
+									<h2 className='text-lg font-semibold text-white flex items-center'>
+										<span className='w-2 h-2 bg-dark-green-s rounded-full mr-3'></span>
+										Examples
+									</h2>
+									{currentProblem?.examples?.map((example: any, index: number) => (
+										<div key={example.id} className='bg-dark-layer-2 rounded-lg p-6 border border-dark-divider-border-2'>
+											<div className='flex items-center mb-4'>
+												<span className='bg-dark-blue-s text-white text-sm font-semibold px-3 py-1 rounded-full mr-3'>
+													Example {index + 1}
+												</span>
+											</div>
 											<div className='example-card'>
-												<pre>
-													<strong className='text-white'>Input: </strong> {example.inputText}
+												<pre className='bg-dark-fill-3 rounded-lg p-4 border border-dark-divider-border-2'>
+													<strong className='text-white'>Input: </strong> 
+													<span className='text-dark-gray-7'>{example.inputData}</span>
 													<br />
-													<strong>Output:</strong>
-													{example.outputText} <br />
+													<strong className='text-white'>Output: </strong>
+													<span className='text-dark-gray-7'>{example.outputData}</span>
 													{example.explanation && (
 														<>
-															<strong>Explanation:</strong> {example.explanation}
+															<br />
+															<strong className='text-white'>Explanation: </strong> 
+															<span className='text-dark-gray-7'>{example.explanation}</span>
 														</>
 													)}
 												</pre>
@@ -410,22 +369,24 @@ public:
 								</div>
 
 								{/* Constraints */}
-								<div className='my-8 pb-4'>
-									<div className='text-white text-sm font-medium'>Constraints:</div>
-									<ul className='text-white ml-5 list-disc '>
+								<div className='bg-dark-layer-2 rounded-lg p-6 border border-dark-divider-border-2'>
+									<h2 className='text-lg font-semibold text-white mb-4 flex items-center'>
+										<span className='w-2 h-2 bg-dark-pink rounded-full mr-3'></span>
+										Constraints
+									</h2>
+									<div className='text-white text-base leading-relaxed'>
 										<div dangerouslySetInnerHTML={{ __html: problem.constraints }} />
-									</ul>
+									</div>
 								</div>
-							</>
+							</div>
 						)}
-
-
 					</div>
 				</div>
 			</div>
 		</div>
 	);
 };
+
 export default ProblemDescription;
 
 function useGetCurrentProblem(problemId: string) {
@@ -442,33 +403,32 @@ function useGetCurrentProblem(problemId: string) {
 				const problemData = await getProblemWithTestCases(problemId);
 				
 				if (problemData) {
-					// Get like/dislike data from localStorage for now
-					let userInteractionData = { likes: 0, dislikes: 0 };
-					if (typeof window !== 'undefined') {
-						const problemKey = `problem_${problemId}`;
-						const savedData = localStorage.getItem(problemKey);
-						if (savedData) {
-							userInteractionData = JSON.parse(savedData);
-						} else {
-							// Use mock data if not in localStorage
-							userInteractionData = mockProblemData[problemId as keyof typeof mockProblemData] || { likes: 0, dislikes: 0 };
-							localStorage.setItem(problemKey, JSON.stringify(userInteractionData));
-						}
-					} else {
-						// Use mock data on server side
-						userInteractionData = mockProblemData[problemId as keyof typeof mockProblemData] || { likes: 0, dislikes: 0 };
-					}
+					// Get stats from API
+					const stats = await getQuestionStats(problemId);
 					
-					// Combine database problem with user interaction data
+					// Combine database problem with stats
 					setCurrentProblem({
 						...problemData,
-						...userInteractionData,
+						...stats,
 						// Mock difficulty for now - you can add this to your database schema later
 						difficulty: "Easy"
 					});
 					
-					// Set difficulty class - using mock difficulty for now
-					setProblemDifficultyClass("bg-dark-green-s text-dark-green-s");
+					// Set difficulty class with proper contrasting colors
+					const getDifficultyClass = (difficulty: string) => {
+						switch (difficulty.toLowerCase()) {
+							case 'easy':
+								return 'bg-green-500/20 text-green-400 border border-green-500/30';
+							case 'medium':
+								return 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30';
+							case 'hard':
+								return 'bg-red-500/20 text-red-400 border border-red-500/30';
+							default:
+								return 'bg-gray-500/20 text-gray-400 border border-gray-500/30';
+						}
+					};
+					
+					setProblemDifficultyClass(getDifficultyClass("Easy"));
 				} else {
 					console.error('Failed to fetch problem from database');
 					setCurrentProblem(null);
@@ -487,29 +447,40 @@ function useGetCurrentProblem(problemId: string) {
 	return { currentProblem, loading, problemDifficultyClass, setCurrentProblem };
 }
 
-function useGetUsersDataOnProblem(problemId: string) {
+function useGetUsersDataOnProblem(problemId: string, userId?: string) {
 	const [data, setData] = useState({ liked: false, disliked: false, starred: false, solved: false });
 
 	useEffect(() => {
-		const getUsersDataOnProblem = () => {
-			if (typeof window !== 'undefined') {
-				const savedUser = localStorage.getItem('user');
-				if (savedUser) {
-					const user = JSON.parse(savedUser);
-					const { solvedProblems, likedProblems, dislikedProblems, starredProblems } = user;
-					setData({
-						liked: likedProblems.includes(problemId),
-						disliked: dislikedProblems.includes(problemId),
-						starred: starredProblems.includes(problemId),
-						solved: solvedProblems.includes(problemId),
-					});
-				}
+		const getUsersDataOnProblem = async () => {
+			if (!userId) {
+				setData({ liked: false, disliked: false, starred: false, solved: false });
+				return;
+			}
+			
+			try {
+				const [interaction, submissions] = await Promise.all([
+					getUserInteraction(problemId, userId),
+					getUserProblemSubmissions(userId, problemId)
+				]);
+				
+				// Check if user has solved this problem (has any AC submission)
+				const hasSolved = submissions.success && submissions.data && 
+					submissions.data.some((submission: any) => submission.status === 'AC');
+				
+				setData({
+					liked: interaction.liked || false,
+					disliked: interaction.disliked || false,
+					starred: interaction.starred || false,
+					solved: hasSolved,
+				});
+			} catch (error) {
+				console.error('Error fetching user interaction:', error);
+				setData({ liked: false, disliked: false, starred: false, solved: false });
 			}
 		};
 
 		getUsersDataOnProblem();
-		return () => setData({ liked: false, disliked: false, starred: false, solved: false });
-	}, [problemId]);
+	}, [problemId, userId]);
 
 	return { ...data, setData };
 }

@@ -137,7 +137,8 @@ export class RedisManager {
                         res({
                             payload: {
                                 id: submissionId,
-                                status: parsedMessage.status || 'Pending'
+                                status: parsedMessage.status || 'Pending',
+                                testResults: parsedMessage.testResults || []
                             }
                         })
                     } catch (parseError) {

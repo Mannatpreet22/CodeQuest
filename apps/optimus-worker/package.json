@@ -4,8 +4,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js",
+    "build": "tsc -b",
+    "start": "tsc -b && node dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -16,14 +16,16 @@
     "@redis/client": "^1.5.19",
     "@repo/commons": "*",
     "@repo/db": "*",
+    "@types/dotenv": "^6.1.1",
     "axios": "^1.6.0",
+    "dotenv": "^17.2.1",
     "uuid": "^10.0.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@repo/typescript-config": "*",
     "@types/node": "^22.13.10",
     "@types/uuid": "^10.0.0",
-    "@repo/typescript-config": "*",
     "tsx": "^4.19.2",
     "typescript": "5.8.2"
   }

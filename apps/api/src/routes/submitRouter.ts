@@ -57,10 +57,24 @@ submitRouter.post('/run', async (req: Request, res: Response) => {
             const status = String(response.payload.status)
             const isSuccess = status === 'AC' || status === '3'
             
+            // Get user-friendly status message
+            let statusMessage = 'Code execution completed';
+            if (status === 'AC') {
+                statusMessage = 'Code executed successfully';
+            } else if (status === 'WA') {
+                statusMessage = 'Wrong Answer - Your output doesn\'t match the expected result';
+            } else if (status === 'TLE') {
+                statusMessage = 'Time Limit Exceeded - Your code took too long to execute';
+            } else if (status === 'CE') {
+                statusMessage = 'Compilation Error - Your code has syntax errors';
+            } else if (status === 'RE') {
+                statusMessage = 'Runtime Error - Your code crashed during execution';
+            }
+            
             res.status(200).json({
                 success: isSuccess,
                 data: response.payload,
-                message: isSuccess ? 'Code executed successfully' : 'Code execution failed - incorrect answer'
+                message: statusMessage
             })
         } else {
             res.status(500).json({
@@ -134,10 +148,24 @@ submitRouter.post('/submit', async (req: Request, res: Response) => {
             const status = String(response.payload.status)
             const isSuccess = status === 'AC' || status === '3'
             
+            // Get user-friendly status message
+            let statusMessage = 'Submission completed';
+            if (status === 'AC') {
+                statusMessage = 'Submission successful - All test cases passed!';
+            } else if (status === 'WA') {
+                statusMessage = 'Wrong Answer - Your output doesn\'t match the expected result';
+            } else if (status === 'TLE') {
+                statusMessage = 'Time Limit Exceeded - Your code took too long to execute';
+            } else if (status === 'CE') {
+                statusMessage = 'Compilation Error - Your code has syntax errors';
+            } else if (status === 'RE') {
+                statusMessage = 'Runtime Error - Your code crashed during execution';
+            }
+            
             res.status(200).json({
                 success: isSuccess,
                 data: response.payload,
-                message: isSuccess ? 'Submission created successfully and is being processed' : 'Submission failed - incorrect answer or runtime error'
+                message: statusMessage
             })
         } else {
             res.status(500).json({
@@ -218,6 +246,42 @@ submitRouter.get('/submissions/:userId', async (req: Request, res: Response) => 
         })
     } catch (error: any) {
         console.error('❌ Error fetching user submissions:', error)
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error!',
+            error: error.message
+        })
+    }
+})
+
+// Get submissions for a specific problem by a user
+submitRouter.get('/submissions/:userId/:problemId', async (req: Request, res: Response) => {
+    try {
+        const { userId, problemId } = req.params
+        
+        const submissions = await prisma.submission.findMany({
+            where: { 
+                userId,
+                questionId: problemId
+            },
+            include: {
+                question: {
+                    select: {
+                        title: true
+                    }
+                }
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        })
+        
+        res.status(200).json({
+            success: true,
+            data: submissions
+        })
+    } catch (error: any) {
+        console.error('❌ Error fetching user problem submissions:', error)
         res.status(500).json({
             success: false,
             message: 'Internal server error!',

@@ -13,7 +13,18 @@ export type IncomingMessage = {
 export type ResponseData = {
     payload : {
         id : string,
-        status : string
+        status : string,
+        testResults?: Array<{
+            testCaseId: number
+            isVisible: boolean
+            status: string
+            output?: string
+            error?: string
+            runtime?: number
+            memory?: number
+            expected?: string
+            actual?: string
+        }>
     }
 }
 

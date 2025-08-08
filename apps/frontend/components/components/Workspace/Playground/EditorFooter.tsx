@@ -8,11 +8,15 @@ type EditorFooterProps = {
 	toggleConsole: () => void;
 	isRunning?: boolean;
 	isSubmitting?: boolean;
+	rightPanelWidth: number;
 };
 
-const EditorFooter: React.FC<EditorFooterProps> = ({ handleRun, handleSubmit, isConsoleOpen, toggleConsole, isRunning = false, isSubmitting = false }) => {
+const EditorFooter: React.FC<EditorFooterProps> = ({ handleRun, handleSubmit, isConsoleOpen, toggleConsole, isRunning = false, isSubmitting = false, rightPanelWidth }) => {
 	return (
-		<div className='flex bg-dark-layer-1 absolute bottom-0 z-10 w-full'>
+		<div 
+			className='flex bg-dark-layer-1 fixed bottom-0 right-0 z-50 border-t border-gray-700 shadow-lg'
+			style={{ width: `${rightPanelWidth}%` }}
+		>
 			<div className='mx-5 my-[10px] flex justify-between w-full'>
 				<div className='mr-2 flex flex-1 flex-nowrap items-center space-x-4'>
 					<button 

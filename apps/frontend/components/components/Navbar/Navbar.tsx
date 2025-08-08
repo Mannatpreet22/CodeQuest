@@ -1,15 +1,12 @@
 'use client';
 
 import Link from "next/link";
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { BsList } from "react-icons/bs";
 import Timer from "../Timer/Timer";
 import { useRouter, useParams, usePathname } from "next/navigation";
-// Note: Problem navigation is temporarily disabled while transitioning to database
-// import { problems } from "@/utils/utils/problems";
-import { Problem } from "@/utils/utils/types/problem";
-import { toast } from "react-toastify";
+import { getAllQuestions } from "@/hooks/hooks/getProblemData";
 import {
   SignInButton,
   SignUpButton,
@@ -30,73 +27,107 @@ const Navbar: React.FC<NavbarProps> = ({ problemPage }) => {
 	// Auto-detect if we're on a problem page
 	const isOnProblemPage = problemPage || pathname?.startsWith('/problems/');
 
-	const handleProblemChange = (isForward: boolean) => {
-		// TODO: Implement database-driven navigation
-		// For now, navigation between problems is disabled
-		console.log('Problem navigation temporarily disabled - transitioning to database');
-		toast.info('Problem navigation will be available once database integration is complete', {
-			position: "top-center",
-			autoClose: 3000,
-			theme: "dark",
-		});
-	};
+    // Problem navigation state (only used on problem pages)
+    const [questionIds, setQuestionIds] = useState<string[]>([]);
+    const [isLoadingQuestions, setIsLoadingQuestions] = useState<boolean>(false);
+
+    // Extract current pid from params when on a problem page
+    const currentPid: string | null = useMemo(() => {
+        if (!isOnProblemPage) return null;
+        const raw = (params as any)?.pid;
+        if (!raw) return null;
+        if (Array.isArray(raw)) return raw[0] ?? null;
+        return String(raw);
+    }, [params, isOnProblemPage]);
+
+    // Load all questions to enable prev/next navigation
+    useEffect(() => {
+        if (!isOnProblemPage) return;
+        let isCancelled = false;
+        const load = async () => {
+            try {
+                setIsLoadingQuestions(true);
+                const questions = await getAllQuestions();
+                if (!isCancelled && Array.isArray(questions)) {
+                    const ids = questions.map(q => q.id).filter(Boolean);
+                    setQuestionIds(ids);
+                }
+            } catch (error) {
+                // Silent fail; buttons will be disabled
+                console.error('Failed to load questions for navigation', error);
+            } finally {
+                if (!isCancelled) setIsLoadingQuestions(false);
+            }
+        };
+        load();
+        return () => { isCancelled = true; };
+    }, [isOnProblemPage]);
+
+    const currentIndex = useMemo(() => {
+        if (!currentPid) return -1;
+        return questionIds.findIndex(id => id === currentPid);
+    }, [questionIds, currentPid]);
+
+    const canGoPrev = isOnProblemPage && currentIndex > 0;
+    const canGoNext = isOnProblemPage && currentIndex >= 0 && currentIndex < questionIds.length - 1;
+
+    const handleProblemChange = (isForward: boolean) => {
+        if (!isOnProblemPage || isLoadingQuestions || currentIndex === -1) return;
+        const nextIndex = isForward ? currentIndex + 1 : currentIndex - 1;
+        if (nextIndex < 0 || nextIndex >= questionIds.length) return;
+        const nextId = questionIds[nextIndex];
+        if (!nextId) return;
+        router.push(`/problems/${nextId}`);
+    };
 
 	// If it's a problem page, use dark theme styling
 	if (isOnProblemPage) {
 		return (
-			<nav className='relative flex h-[50px] w-full shrink-0 items-center px-5 bg-dark-layer-1 text-dark-gray-7'>
+			<nav className='relative flex h-[60px] w-full shrink-0 items-center px-6 bg-dark-layer-1 border-b border-dark-divider-border-2 text-dark-label-2'>
 				<div className={`flex w-full items-center justify-between ${!isOnProblemPage ? "max-w-[1200px] mx-auto" : ""}`}>
 					<Link href='/' className='h-[22px] flex-1'>
-						<div className='text-lg font-bold text-brand-orange hover:text-white transition-colors duration-300'>
+						<div className='text-xl font-bold text-white hover:text-brand-orange transition-all duration-300'>
 							CodeQuest
 						</div>
 					</Link>
 
-					{isOnProblemPage && (
+                    {isOnProblemPage && (
 						<div className='flex items-center gap-4 flex-1 justify-center'>
-							<div
-								className='flex items-center justify-center rounded bg-dark-fill-3 hover:bg-dark-fill-2 h-8 w-8 cursor-pointer'
-								onClick={() => handleProblemChange(false)}
-							>
-								<FaChevronLeft />
-							</div>
+                            <div
+                                className={`flex items-center justify-center rounded-lg h-10 w-10 transition-all duration-200 border ${canGoPrev ? 'bg-dark-layer-1 hover:bg-dark-fill-3 cursor-pointer border-dark-divider-border-2 hover:border-brand-orange/50' : 'bg-dark-fill-3 cursor-not-allowed opacity-50 border-dark-divider-border-2'}`}
+                                aria-disabled={!canGoPrev}
+                                onClick={() => canGoPrev && handleProblemChange(false)}
+                            >
+                                <FaChevronLeft className='text-dark-label-2' />
+                            </div>
 							<Link
 								href='/'
-								className='flex items-center gap-2 font-medium max-w-[170px] text-dark-gray-8 cursor-pointer'
+								className='flex items-center gap-2 font-medium max-w-[170px] text-dark-label-2 cursor-pointer hover:text-brand-orange transition-colors duration-200'
 							>
-								<div>
-									<BsList />
+								<div className='p-2 bg-dark-layer-1 rounded-lg border border-dark-divider-border-2'>
+									<BsList className='text-lg' />
 								</div>
 								<p>Problem List</p>
 							</Link>
-							<div
-								className='flex items-center justify-center rounded bg-dark-fill-3 hover:bg-dark-fill-2 h-8 w-8 cursor-pointer'
-								onClick={() => handleProblemChange(true)}
-							>
-								<FaChevronRight />
-							</div>
+                            <div
+                                className={`flex items-center justify-center rounded-lg h-10 w-10 transition-all duration-200 border ${canGoNext ? 'bg-dark-layer-1 hover:bg-dark-fill-3 cursor-pointer border-dark-divider-border-2 hover:border-brand-orange/50' : 'bg-dark-fill-3 cursor-not-allowed opacity-50 border-dark-divider-border-2'}`}
+                                aria-disabled={!canGoNext}
+                                onClick={() => canGoNext && handleProblemChange(true)}
+                            >
+                                <FaChevronRight className='text-dark-label-2' />
+                            </div>
 						</div>
 					)}
 
 					<div className='flex items-center space-x-4 flex-1 justify-end'>
-						<div>
-							<a
-								href='https://www.buymeacoffee.com/burakorkmezz'
-								target='_blank'
-								rel='noreferrer'
-								className='bg-dark-fill-3 py-1.5 px-3 cursor-pointer rounded text-brand-orange hover:bg-dark-fill-2'
-							>
-								Premium
-							</a>
-						</div>
 						<SignedOut>
 							<SignInButton>
-								<button className='bg-dark-fill-3 py-1 px-2 cursor-pointer rounded hover:bg-dark-fill-2'>
+								<button className='bg-dark-layer-1 py-2 px-4 cursor-pointer rounded-lg hover:bg-dark-fill-3 border border-dark-divider-border-2 hover:border-brand-orange/50 transition-all duration-200 font-medium text-dark-label-2'>
 									Sign In
 								</button>
 							</SignInButton>
 							<SignUpButton>
-								<button className='bg-dark-fill-3 py-1 px-2 cursor-pointer rounded hover:bg-dark-fill-2'>
+								<button className='bg-dark-layer-1 py-2 px-4 cursor-pointer rounded-lg hover:bg-dark-fill-3 border border-dark-divider-border-2 hover:border-brand-orange/50 transition-all duration-200 font-medium text-dark-label-2'>
 									Sign Up
 								</button>
 							</SignUpButton>
@@ -111,40 +142,42 @@ const Navbar: React.FC<NavbarProps> = ({ problemPage }) => {
 		);
 	}
 
-	// Default light theme for general pages
+	// Default theme for general pages - matches home page styling
 	return (
-		<div className='flex items-center justify-between sm:px-12 px-2 md:px-24 h-20'>
-			<Link href='/' className='flex items-center justify-center h-20'>
-				<div className='text-2xl font-bold text-brand-orange hover:text-white transition-colors duration-300'>
-					CodeQuest
+		<nav className='relative flex h-[80px] w-full shrink-0 items-center px-6 bg-dark-layer-1 border-b border-dark-divider-border-2'>
+			<div className='flex items-center justify-between w-full max-w-7xl mx-auto'>
+				<Link href='/' className='flex items-center justify-center'>
+					<div className='text-2xl font-bold text-white hover:text-brand-orange transition-all duration-300'>
+						CodeQuest
+					</div>
+				</Link>
+				<div className='flex items-center gap-4'>
+					<SignedOut>
+						<SignInButton>
+							<button
+								className='bg-dark-layer-1 text-dark-label-2 px-4 py-2 rounded-lg text-sm font-medium
+								hover:bg-dark-fill-3 hover:text-white border border-dark-divider-border-2 hover:border-brand-orange/50
+								transition-all duration-200'
+							>
+								Sign In
+							</button>
+						</SignInButton>
+						<SignUpButton>
+							<button
+								className='bg-gradient-to-r from-brand-orange to-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium
+								hover:from-orange-600 hover:to-brand-orange transform hover:scale-105
+								transition-all duration-200 shadow-lg'
+							>
+								Sign Up
+							</button>
+						</SignUpButton>
+					</SignedOut>
+					<SignedIn>
+						<UserButton />
+					</SignedIn>
 				</div>
-			</Link>
-			<div className='flex items-center gap-4'>
-				<SignedOut>
-					<SignInButton>
-						<button
-							className='bg-brand-orange text-white px-2 py-1 sm:px-4 rounded-md text-sm font-medium
-							hover:text-brand-orange hover:bg-white hover:border-2 hover:border-brand-orange border-2 border-transparent
-							transition duration-300 ease-in-out'
-						>
-							Sign In
-						</button>
-					</SignInButton>
-					<SignUpButton>
-						<button
-							className='bg-brand-orange text-white px-2 py-1 sm:px-4 rounded-md text-sm font-medium
-							hover:text-brand-orange hover:bg-white hover:border-2 hover:border-brand-orange border-2 border-transparent
-							transition duration-300 ease-in-out'
-						>
-							Sign Up
-						</button>
-					</SignUpButton>
-				</SignedOut>
-				<SignedIn>
-					<UserButton />
-				</SignedIn>
 			</div>
-		</div>
+		</nav>
 	);
 };
 
