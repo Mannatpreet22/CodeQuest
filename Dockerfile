@@ -1,18 +1,29 @@
-# Use Node.js LTS (Latest Stable)
+# Production-ready Dockerfile for CodeQuest Platform
+# Multi-stage build for optimized production images
+
+# Stage 1: Base image with security updates
 FROM node:18-alpine AS base
 
-# Install curl for health checks
-RUN apk add --no-cache curl
+# Install system dependencies and security updates
+RUN apk update && apk upgrade && \
+    apk add --no-cache \
+    curl \
+    dumb-init \
+    && rm -rf /var/cache/apk/*
 
-# Install dependencies only when needed
-FROM base AS deps
+# Create non-root user for security
+RUN addgroup -g 1001 -S codequest && \
+    adduser -S codequest -u 1001 -G codequest
+
+# Set working directory
 WORKDIR /app
 
-# Copy root package files
+# Stage 2: Dependencies installation
+FROM base AS deps
+
+# Copy package files for dependency installation
 COPY package*.json ./
 COPY turbo.json ./
-
-# Copy all workspace package files
 COPY apps/api/package*.json ./apps/api/
 COPY apps/optimus-worker/package*.json ./apps/optimus-worker/
 COPY packages/db/package*.json ./packages/db/
@@ -20,73 +31,132 @@ COPY packages/redis/package*.json ./packages/redis/
 COPY packages/commons/package*.json ./packages/commons/
 COPY packages/typescript-config/package*.json ./packages/typescript-config/
 
-# Install dependencies
+# Install all dependencies (including dev dependencies for building)
 RUN npm install
 
-# Builder stage
+# Stage 3: Builder with all source code
 FROM base AS builder
-WORKDIR /app
+
+# Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/package*.json ./
+
+# Copy all source code
 COPY . .
 
 # Generate Prisma client
 RUN npx prisma generate --schema=./packages/db/prisma/schema.prisma
 
-# Build all packages and apps
-RUN npm run build -w @repo/db
-RUN npm run build -w @repo/redis
-RUN npm run build -w @repo/commons
-RUN npm run build -w api
-RUN npm run build -w optimus-worker
+# Build all packages and applications
+RUN npm run build -w @repo/db && \
+    npm run build -w @repo/redis && \
+    npm run build -w @repo/commons && \
+    npm run build -w api && \
+    npm run build -w optimus-worker
 
-# Runner stage for API
+# Stage 4: Production API Runner
 FROM base AS api-runner
-WORKDIR /app
 
-ENV NODE_ENV production
+# Set production environment
+ENV NODE_ENV=production
+ENV PORT=3000
 
-# Copy necessary files and built assets
-COPY --from=builder /app/apps/api/dist ./dist
-COPY --from=builder /app/apps/api/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/packages/db/dist ./packages/db/dist
-COPY --from=builder /app/packages/db/package*.json ./packages/db/
-COPY --from=builder /app/packages/redis/dist ./packages/redis/dist
-COPY --from=builder /app/packages/redis/package*.json ./packages/redis/
-COPY --from=builder /app/packages/commons/dist ./packages/commons/dist
-COPY --from=builder /app/packages/commons/package*.json ./packages/commons/
+# Copy built application and dependencies
+COPY --from=builder --chown=codequest:codequest /app/apps/api/dist ./dist
+COPY --from=builder --chown=codequest:codequest /app/apps/api/package*.json ./
+COPY --from=builder --chown=codequest:codequest /app/node_modules ./node_modules
 
-# Create a non-root user
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 codequest
+# Copy compiled packages
+COPY --from=builder --chown=codequest:codequest /app/packages/db/dist ./packages/db/dist
+COPY --from=builder --chown=codequest:codequest /app/packages/db/package*.json ./packages/db/
+COPY --from=builder --chown=codequest:codequest /app/packages/redis/dist ./packages/redis/dist
+COPY --from=builder --chown=codequest:codequest /app/packages/redis/package*.json ./packages/redis/
+COPY --from=builder --chown=codequest:codequest /app/packages/commons/dist ./packages/commons/dist
+COPY --from=builder --chown=codequest:codequest /app/packages/commons/package*.json ./packages/commons/
+
+# Copy Prisma client
+COPY --from=builder --chown=codequest:codequest /app/node_modules/.prisma ./node_modules/.prisma
+
+# Switch to non-root user
 USER codequest
 
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+# Expose port
 EXPOSE 3000
 
+# Use dumb-init for proper signal handling
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start the application
 CMD ["node", "dist/index.js"]
 
-# Runner stage for Optimus Worker
+# Stage 5: Production Worker Runner
 FROM base AS worker-runner
-WORKDIR /app
 
-ENV NODE_ENV production
+# Set production environment
+ENV NODE_ENV=production
+ENV PORT=3001
 
-# Copy necessary files and built assets
-COPY --from=builder /app/apps/optimus-worker/dist ./dist
-COPY --from=builder /app/apps/optimus-worker/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/packages/db/dist ./packages/db/dist
-COPY --from=builder /app/packages/db/package*.json ./packages/db/
-COPY --from=builder /app/packages/redis/dist ./packages/redis/dist
-COPY --from=builder /app/packages/redis/package*.json ./packages/redis/
-COPY --from=builder /app/packages/commons/dist ./packages/commons/dist
-COPY --from=builder /app/packages/commons/package*.json ./packages/commons/
+# Copy built application and dependencies
+COPY --from=builder --chown=codequest:codequest /app/apps/optimus-worker/dist ./dist
+COPY --from=builder --chown=codequest:codequest /app/apps/optimus-worker/package*.json ./
+COPY --from=builder --chown=codequest:codequest /app/node_modules ./node_modules
 
-# Create a non-root user
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 codequest
+# Copy compiled packages
+COPY --from=builder --chown=codequest:codequest /app/packages/db/dist ./packages/db/dist
+COPY --from=builder --chown=codequest:codequest /app/packages/db/package*.json ./packages/db/
+COPY --from=builder --chown=codequest:codequest /app/packages/redis/dist ./packages/redis/dist
+COPY --from=builder --chown=codequest:codequest /app/packages/redis/package*.json ./packages/redis/
+COPY --from=builder --chown=codequest:codequest /app/packages/commons/dist ./packages/commons/dist
+COPY --from=builder --chown=codequest:codequest /app/packages/commons/package*.json ./packages/commons/
+
+# Copy Prisma client
+COPY --from=builder --chown=codequest:codequest /app/node_modules/.prisma ./node_modules/.prisma
+
+# Switch to non-root user
 USER codequest
 
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:3001/health || exit 1
+
+# Expose port
 EXPOSE 3001
 
-CMD ["node", "dist/index.js"] 
+# Use dumb-init for proper signal handling
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start the worker
+CMD ["node", "dist/index.js"]
+
+# Stage 6: Frontend Runner (Optional - for full-stack deployment)
+FROM base AS frontend-runner
+
+# Set production environment
+ENV NODE_ENV=production
+ENV PORT=3002
+ENV HOSTNAME="0.0.0.0"
+
+# Copy built frontend application
+COPY --from=builder --chown=codequest:codequest /app/apps/frontend/.next/standalone ./
+COPY --from=builder --chown=codequest:codequest /app/apps/frontend/.next/static ./.next/static
+COPY --from=builder --chown=codequest:codequest /app/apps/frontend/public ./public
+
+# Switch to non-root user
+USER codequest
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:3002/ || exit 1
+
+# Expose port
+EXPOSE 3002
+
+# Use dumb-init for proper signal handling
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start the frontend
+CMD ["node", "server.js"] 
