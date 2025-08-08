@@ -43,7 +43,15 @@ class OptimusWorker {
     private isConnected = false
 
     constructor() {
-        const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379'
+        // Build Redis URL with password if available
+        const redisHost = process.env.REDIS_HOST || 'localhost'
+        const redisPort = process.env.REDIS_PORT || '6379'
+        const redisPassword = process.env.REDIS_PASSWORD
+        
+        let redisUrl = `redis://${redisHost}:${redisPort}`
+        if (redisPassword) {
+            redisUrl = `redis://:${redisPassword}@${redisHost}:${redisPort}`
+        }
         
         this.redisClient = createClient({
             url: redisUrl
