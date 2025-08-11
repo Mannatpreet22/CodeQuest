@@ -38,7 +38,6 @@ From the project root directory:
 
 The seed script creates:
 
-- **1 Test User**: `testuser` with email `test@example.com`
 - **4 Programming Questions**:
   1. **Sum of Two Numbers** - Basic arithmetic
   2. **Find Maximum Number** - Array operations

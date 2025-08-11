@@ -46,11 +46,11 @@ export class Judge0ConnectionManager {
     }
 
     private selfHostedConfig = {
-        baseUrl: process.env.JUDGE0_SELF_HOSTED_URL || 'http://localhost:2358',
+        baseUrl: process.env.JUDGE0_SELF_HOSTED_URL || 'http://judge0:2358',
         apiKey: process.env.JUDGE0_SELF_HOSTED_KEY || ''
     }
 
-    private currentProvider: Judge0Provider = Judge0Provider.RAPIDAPI
+    private currentProvider: Judge0Provider = Judge0Provider.SELF_HOSTED
     private isRapidApiQuotaExceeded = false
 
     constructor() {
@@ -64,21 +64,21 @@ export class Judge0ConnectionManager {
     }
 
     public getLanguageId(lang: string): number {
-        // Language IDs are the same for both RapidAPI and self-hosted Judge0
+        // IDs aligned to official Judge0 CE v1.13.x (from /languages)
         switch (lang.toLowerCase()) {
             case 'javascript':
             case 'js':
-                return 63 // JavaScript (Node.js 18.15.0)
+                return 63 // JavaScript (Node.js 12.14.0)
             case 'python':
             case 'py':
-                return 25 // Python for ML (3.11.2)
+                return 71 // Python (3.8.1)
             case 'cpp':
             case 'c++':
-                return 2 // C++ (Clang 10.0.1)
+                return 54 // C++ (GCC 9.2.0)
             case 'java':
-                return 4 // Java (OpenJDK 14.0.1)
+                return 62 // Java (OpenJDK 13.0.1)
             case 'c':
-                return 1 // C (Clang 10.0.1)
+                return 50 // C (GCC 9.2.0)
             default:
                 throw new Error(`Unsupported language: ${lang}`)
         }

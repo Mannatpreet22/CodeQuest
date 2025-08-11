@@ -15,6 +15,7 @@ import { StorageService } from "@/utils/storage"
 import { python } from "@codemirror/lang-python"
 import { java } from "@codemirror/lang-java"
 import { cpp } from "@codemirror/lang-cpp"
+import { useUser } from '@clerk/nextjs'
 
 type PlaygroundProps = {
 	problem: SerializableProblem
@@ -85,6 +86,7 @@ const formatExpectedOutput = (expected: any): string => {
 }
 
 const Playground: React.FC<PlaygroundProps> = ({ problem, pid, setSuccess, setSolved, isConsoleOpen, setIsConsoleOpen, isRunning, setIsRunning, isSubmitting, setIsSubmitting, runHandlerRef, submitHandlerRef }) => {
+	const { user } = useUser()
 	const [activeTestCaseId, setActiveTestCaseId] = useState<number>(0)
 	let [userCode, setUserCode] = useState<string>(problem.starterCode)
 	const [testCases, setTestCases] = useState<any[]>([])
@@ -109,6 +111,16 @@ const Playground: React.FC<PlaygroundProps> = ({ problem, pid, setSuccess, setSo
 	const handleRunCode = useCallback(async () => {
 		if (isRunning) return
 		
+		// Check if user is authenticated
+		if (!user?.id) {
+			toast.error("Please sign in to run code", {
+				position: "top-center",
+				autoClose: 3000,
+				theme: "dark",
+			})
+			return
+		}
+		
 		setIsRunning(true)
 		setExecutionResult(null)
 		setTestCaseStatusById({})
@@ -117,7 +129,7 @@ const Playground: React.FC<PlaygroundProps> = ({ problem, pid, setSuccess, setSo
 		try {
 			const submission = {
 				problemId: pid,
-				userId: mockUserId,
+				userId: user.id,
 				code: userCode,
 				lang: settings.language
 			}
@@ -197,6 +209,16 @@ const Playground: React.FC<PlaygroundProps> = ({ problem, pid, setSuccess, setSo
 	const handleSubmitCode = useCallback(async () => {
 		if (isSubmitting) return
 		
+		// Check if user is authenticated
+		if (!user?.id) {
+			toast.error("Please sign in to submit code", {
+				position: "top-center",
+				autoClose: 3000,
+				theme: "dark",
+			})
+			return
+		}
+		
 		setIsSubmitting(true)
 		setExecutionResult(null)
 		setTestCaseStatusById({})
@@ -205,7 +227,7 @@ const Playground: React.FC<PlaygroundProps> = ({ problem, pid, setSuccess, setSo
 		try {
 			const submission = {
 				problemId: pid,
-				userId: mockUserId,
+				userId: user.id,
 				code: userCode,
 				lang: settings.language
 			}
@@ -298,9 +320,6 @@ const Playground: React.FC<PlaygroundProps> = ({ problem, pid, setSuccess, setSo
 	const toggleConsole = () => {
 		setIsConsoleOpen(!isConsoleOpen)
 	}
-
-		// Mock user ID - in a real app, this would come from auth context
-	const mockUserId = "user-123"
 
 
 

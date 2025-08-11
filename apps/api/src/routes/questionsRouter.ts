@@ -1,111 +1,164 @@
-import {Router, RequestHandler} from 'express'
+import {Router, RequestHandler, Request, Response} from 'express'
 import prisma from '@repo/db/client'
+
 export const questionsRouter = Router()
 
-const getAllQuestions: RequestHandler = async (req, res) => {
-    const questions = await prisma.question.findMany({})
-    if (!questions) {
-        res.status(404).json({error : 'No questions found'})
-        return
+// Middleware to check if user is authenticated (basic check)
+const requireAuth = (req: Request, res: Response, next: Function) => {
+    const userId = req.headers['x-user-id'] || req.query.userId || req.body.userId;
+    
+    if (!userId || typeof userId !== 'string') {
+        return res.status(401).json({ error: 'Authentication required' });
     }
-    res.json(questions)
+    
+    // Basic validation
+    if (userId.length < 3 || userId.length > 100) {
+        return res.status(400).json({ error: 'Invalid user ID format' });
+    }
+    
+    next();
+};
+
+const getAllQuestions: RequestHandler = async (req, res) => {
+    try {
+        const questions = await prisma.question.findMany({
+            select: {
+                id: true,
+                title: true,
+                body: true,
+                difficulty: true,
+                createdAt: true,
+                updatedAt: true
+            }
+        });
+        
+        if (!questions || questions.length === 0) {
+            res.status(404).json({error : 'No questions found'})
+            return
+        }
+        res.json(questions)
+    } catch (error) {
+        console.error('Error fetching questions:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 }
 
 questionsRouter.get('/all-questions', getAllQuestions)
 
 questionsRouter.get('/question', async (req, res) => {
-    const {id} = req.query
-    if (!id) {
-        res.status(400).json({error : 'No id provided'})
-        return
-    }
-    const question = await prisma.question.findUnique({
-        where: {id: id as string},
-        include: {
-            examples: true  // Include examples
+    try {
+        const {id} = req.query
+        if (!id) {
+            res.status(400).json({error : 'No id provided'})
+            return
         }
-    })
-    if (!question || question.id !== id) {
-        res.status(404).json({error : 'Question not found'})
-        return
+        const question = await prisma.question.findUnique({
+            where: {id: id as string},
+            include: {
+                examples: true  // Include examples
+            }
+        })
+        if (!question || question.id !== id) {
+            res.status(404).json({error : 'Question not found'})
+            return
+        }
+        res.json(question)
+    } catch (error) {
+        console.error('Error fetching question:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-    res.json(question)
 })
 
 // Get question with visible test cases only (for users)
 questionsRouter.get('/question/:id/testcases', async (req, res) => {
-    const {id} = req.params
-    if (!id) {
-        res.status(400).json({error : 'No id provided'})
-        return
-    }
-    const question = await prisma.question.findUnique({
-        where: {id: id as string},
-        include: {
-            testcases: {
-                where: {
-                    isVisible: true  // Only return visible test cases
-                },
-                include: {
-                    testCaseInputs: true
-                }
-            },
-            examples: true  // Include examples
+    try {
+        const {id} = req.params
+        if (!id) {
+            res.status(400).json({error : 'No id provided'})
+            return
         }
-    })
-    if (!question) {
-        res.status(404).json({error : 'Question not found'})
-        return
+        const question = await prisma.question.findUnique({
+            where: {id: id as string},
+            include: {
+                testcases: {
+                    where: {
+                        isVisible: true  // Only return visible test cases
+                    },
+                    include: {
+                        testCaseInputs: true
+                    }
+                },
+                examples: true  // Include examples
+            }
+        })
+        if (!question) {
+            res.status(404).json({error : 'Question not found'})
+            return
+        }
+        res.json(question)
+    } catch (error) {
+        console.error('Error fetching question test cases:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-    res.json(question)
 })
 
-// Get question with ALL test cases (for submission/evaluation)
-questionsRouter.get('/question/:id/all-testcases', async (req, res) => {
-    const {id} = req.params
-    if (!id) {
-        res.status(400).json({error : 'No id provided'})
-        return
-    }
-    const question = await prisma.question.findUnique({
-        where: {id: id as string},
-        include: {
-            testcases: {
-                include: {
-                    testCaseInputs: true
-                }
-            },
-            examples: true  // Include examples
+// Get question with ALL test cases (for submission/evaluation - requires authentication)
+questionsRouter.get('/question/:id/all-testcases', requireAuth, async (req, res) => {
+    try {
+        const {id} = req.params
+        if (!id) {
+            res.status(400).json({error : 'No id provided'})
+            return
         }
-    })
-    if (!question) {
-        res.status(404).json({error : 'Question not found'})
-        return
+        
+        const question = await prisma.question.findUnique({
+            where: {id: id as string},
+            include: {
+                testcases: {
+                    include: {
+                        testCaseInputs: true
+                    }
+                },
+                examples: true  // Include examples
+            }
+        })
+        if (!question) {
+            res.status(404).json({error : 'Question not found'})
+            return
+        }
+        res.json(question)
+    } catch (error) {
+        console.error('Error fetching question with all test cases:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-    res.json(question)
 })
 
 // Get template code for a specific problem and language
 questionsRouter.get('/template/:id/:language', async (req, res) => {
-    const {id, language} = req.params
-    if (!id || !language) {
-        res.status(400).json({error : 'No id or language provided'})
-        return
-    }
-    
-    const templateCode = await prisma.templateCode.findFirst({
-        where: {
-            questionId: id as string,
-            programmingLanguageId: language as string
+    try {
+        const {id, language} = req.params
+        if (!id || !language) {
+            res.status(400).json({error : 'No id or language provided'})
+            return
         }
-    })
-    
-    if (!templateCode) {
-        res.status(404).json({error : 'Template code not found'})
-        return
+        
+        const templateCode = await prisma.templateCode.findFirst({
+            where: {
+                questionId: id as string,
+                programmingLanguageId: language as string
+            }
+        })
+        
+        if (!templateCode) {
+            res.status(404).json({error : 'Template code not found'})
+            return
+        }
+        
+        res.json(templateCode)
+    } catch (error) {
+        console.error('Error fetching template code:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-    
-    res.json(templateCode)
 })
 
 // Get user interaction for a specific question
@@ -130,6 +183,7 @@ questionsRouter.get('/question/:id/interaction', async (req, res) => {
         
         res.json(interaction || { liked: false, disliked: false, starred: false })
     } catch (error) {
+        console.error('Error fetching user interaction:', error);
         res.status(500).json({error : 'Failed to get user interaction'})
     }
 })
@@ -167,6 +221,7 @@ questionsRouter.get('/question/:id/stats', async (req, res) => {
         
         res.json({ likes, dislikes, stars })
     } catch (error) {
+        console.error('Error fetching question stats:', error);
         res.status(500).json({error : 'Failed to get question stats'})
     }
 })
@@ -220,6 +275,7 @@ questionsRouter.post('/question/:id/like', async (req, res) => {
             res.json(newInteraction)
         }
     } catch (error) {
+        console.error('Error toggling like:', error);
         res.status(500).json({error : 'Failed to toggle like'})
     }
 })
@@ -273,6 +329,7 @@ questionsRouter.post('/question/:id/dislike', async (req, res) => {
             res.json(newInteraction)
         }
     } catch (error) {
+        console.error('Error toggling dislike:', error);
         res.status(500).json({error : 'Failed to toggle dislike'})
     }
 })
@@ -325,6 +382,7 @@ questionsRouter.post('/question/:id/star', async (req, res) => {
             res.json(newInteraction)
         }
     } catch (error) {
+        console.error('Error toggling star:', error);
         res.status(500).json({error : 'Failed to toggle star'})
     }
 })
@@ -351,6 +409,7 @@ questionsRouter.get('/user/:userId/solved-count', async (req, res) => {
         
         res.json({ solvedCount })
     } catch (error) {
+        console.error('Error fetching solved count:', error);
         res.status(500).json({error : 'Failed to get solved count'})
     }
 })
@@ -361,6 +420,7 @@ questionsRouter.get('/total-count', async (req, res) => {
         const totalCount = await prisma.question.count()
         res.json({ totalCount })
     } catch (error) {
+        console.error('Error fetching total count:', error);
         res.status(500).json({error : 'Failed to get total count'})
     }
 })
@@ -394,6 +454,7 @@ questionsRouter.get('/random', async (req, res) => {
         
         res.json(randomQuestion)
     } catch (error) {
+        console.error('Error fetching random question:', error);
         res.status(500).json({error : 'Failed to get random question'})
     }
 })
@@ -436,6 +497,7 @@ questionsRouter.get('/random/unsolved/:userId', async (req, res) => {
         
         res.json(randomQuestion)
     } catch (error) {
+        console.error('Error fetching random unsolved question:', error);
         res.status(500).json({error : 'Failed to get random unsolved question'})
     }
 })

@@ -16,18 +16,6 @@ async function main() {
 
   console.log('🧹 Cleared existing data')
 
-  // Create a test user
-  const testUser = await prisma.user.create({
-    data: {
-      id: 'user-123',
-      email: 'test@example.com',
-      username: 'testuser',
-      firstName: 'Test',
-      lastName: 'User'
-    }
-  })
-  console.log('👤 Created test user:', testUser.id)
-
   // Question 1: Sum of Two Numbers
   const sumQuestion = await prisma.question.create({
     data: {

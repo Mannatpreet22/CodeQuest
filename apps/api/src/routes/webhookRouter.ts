@@ -4,6 +4,56 @@ import prisma from '@repo/db/client';
 
 export const webhookRouter = Router();
 
+// Helper function to extract user data from different auth providers
+function extractUserData(data: any) {
+  console.log('🔍 Extracting user data from webhook payload...');
+  console.log('📊 Raw data structure:', JSON.stringify(data, null, 2));
+  
+  // Handle different authentication providers (Google, Apple, GitHub, Email)
+  let email = null;
+  
+  // Method 1: Try primary email address ID
+  if (data.primary_email_address_id && data.email_addresses) {
+    const emailAddress = data.email_addresses.find((email: any) => email.id === data.primary_email_address_id);
+    email = emailAddress?.email_address;
+    console.log('✅ Found email via primary_email_address_id:', email);
+  }
+  
+  // Method 2: If no primary email, try first available email
+  if (!email && data.email_addresses && data.email_addresses.length > 0) {
+    email = data.email_addresses[0].email_address;
+    console.log('✅ Found email via first email_addresses item:', email);
+  }
+  
+  // Method 3: Check if email is directly on the user object (some OAuth providers)
+  if (!email && data.email) {
+    email = data.email;
+    console.log('✅ Found email via direct data.email:', email);
+  }
+
+  if (!email) {
+    console.error('❌ No email found for user:', data.id);
+    console.error('❌ Available data:', {
+      primary_email_address_id: data.primary_email_address_id,
+      email_addresses: data.email_addresses,
+      direct_email: data.email,
+      username: data.username,
+      first_name: data.first_name,
+      last_name: data.last_name
+    });
+    return null;
+  }
+
+  return {
+    id: data.id,
+    email: email,
+    username: data.username || null,
+    firstName: data.first_name || null,
+    lastName: data.last_name || null,
+    imageUrl: data.image_url || null,
+  };
+}
+
 // Clerk webhook endpoint
 webhookRouter.post('/clerk', async (req: Request, res: Response) => {
   const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
@@ -73,24 +123,14 @@ webhookRouter.post('/clerk', async (req: Request, res: Response) => {
 async function handleUserCreated(data: any) {
   console.log('👤 Creating user in database:', data.id);
   
-  const emailAddress = data.email_addresses?.find((email: any) => email.id === data.primary_email_address_id);
-  const email = emailAddress?.email_address;
-
-  if (!email) {
-    console.error('❌ No email found for user:', data.id);
+  const userData = extractUserData(data);
+  if (!userData) {
     return;
   }
 
   try {
     const user = await prisma.user.create({
-      data: {
-        id: data.id,
-        email: email,
-        username: data.username || null,
-        firstName: data.first_name || null,
-        lastName: data.last_name || null,
-        imageUrl: data.image_url || null,
-      },
+      data: userData,
     });
 
     console.log('✅ User created successfully:', user.id);
@@ -108,32 +148,16 @@ async function handleUserCreated(data: any) {
 async function handleUserUpdated(data: any) {
   console.log('📝 Updating user in database:', data.id);
   
-  const emailAddress = data.email_addresses?.find((email: any) => email.id === data.primary_email_address_id);
-  const email = emailAddress?.email_address;
-
-  if (!email) {
-    console.error('❌ No email found for user:', data.id);
+  const userData = extractUserData(data);
+  if (!userData) {
     return;
   }
 
   try {
     const user = await prisma.user.upsert({
       where: { id: data.id },
-      update: {
-        email: email,
-        username: data.username || null,
-        firstName: data.first_name || null,
-        lastName: data.last_name || null,
-        imageUrl: data.image_url || null,
-      },
-      create: {
-        id: data.id,
-        email: email,
-        username: data.username || null,
-        firstName: data.first_name || null,
-        lastName: data.last_name || null,
-        imageUrl: data.image_url || null,
-      },
+      update: userData,
+      create: userData,
     });
 
     console.log('✅ User updated successfully:', user.id);

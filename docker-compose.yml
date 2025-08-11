@@ -44,18 +44,18 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - JUDGE0_RAPIDAPI_URL=${JUDGE0_RAPIDAPI_URL}
       - JUDGE0_RAPIDAPI_KEY=${JUDGE0_RAPIDAPI_KEY}
-      - JUDGE0_SELF_HOSTED_URL=http://judge0:2358
+      - JUDGE0_SELF_HOSTED_URL=http://host.docker.internal:2358
       - JUDGE0_SELF_HOSTED_KEY=${JUDGE0_SELF_HOSTED_KEY}
     depends_on:
       redis:
         condition: service_healthy
       api:
         condition: service_healthy
-      judge0:
-        condition: service_started
     restart: unless-stopped
     networks:
       - codequest-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./logs/worker:/app/logs
 
@@ -75,37 +75,9 @@ services:
     networks:
       - codequest-network
 
-  judge0:
-    image: judge0/judge0:latest
-    volumes:
-      - judge0-data:/judge0
-    ports:
-      - "2358:2358"
-    privileged: true
-    environment:
-      - VIRTUAL_HOST=judge0
-      - VIRTUAL_PORT=2358
-      - JUDGE0_FS_ROOT=/judge0
-      - RAILS_MAX_THREADS=2
-      - JUDGE0_ENABLE_ADDITIONAL_FILES=true
-      - JUDGE0_ENABLE_PROCESS_ISOLATION=true
-      - JUDGE0_ENABLE_COMPILER_OPTIONS=true
-      - JUDGE0_WORKERS=2
-      - JUDGE0_MAX_QUEUE_SIZE=100
-      - JUDGE0_SUBMISSION_PROCESSING_TIMEOUT=30
-      - JUDGE0_ENABLE_PER_PROCESS_AND_THREAD_TIME_LIMIT=false
-      - JUDGE0_ENABLE_PER_PROCESS_AND_THREAD_MEMORY_LIMIT=false
-      - JUDGE0_CPU_TIME_LIMIT=15
-      - JUDGE0_MAX_CPU_TIME_LIMIT=30
-      - JUDGE0_MEMORY_LIMIT=512000
-      - JUDGE0_MAX_MEMORY_LIMIT=512000
-      - JUDGE0_STACK_LIMIT=128000
-      - JUDGE0_MAX_STACK_LIMIT=128000
-      - JUDGE0_ALLOW_ENABLE_PER_PROCESS_AND_THREAD_TIME_LIMIT=false
-      - JUDGE0_ALLOW_ENABLE_PER_PROCESS_AND_THREAD_MEMORY_LIMIT=false
-    restart: unless-stopped
-    networks:
-      - codequest-network
+  
+
+  
 
 networks:
   codequest-network:
@@ -113,4 +85,4 @@ networks:
 
 volumes:
   redis_data:
-  judge0-data:
+ 
