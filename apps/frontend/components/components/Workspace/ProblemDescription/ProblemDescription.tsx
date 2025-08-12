@@ -2,14 +2,13 @@
 
 import CircleSkeleton from "@/components/components/Skeletons/CircleSkeleton";
 import RectangleSkeleton from "@/components/components/Skeletons/RectangleSkeleton";
-import { Problem } from "@/utils/utils/types/problem";
 import { SerializableProblem } from "@/utils/utils/types/serializable";
 import { useEffect, useState } from "react";
 import { AiFillLike, AiFillDislike, AiOutlineLoading3Quarters, AiFillStar } from "react-icons/ai";
 import { BsCheck2Circle } from "react-icons/bs";
 import { TiStarOutline } from "react-icons/ti";
 import { toast } from "react-toastify";
-import { SubmissionRow, SubmissionsTable } from "./SubmissionTab";
+import { SubmissionsTable } from "./SubmissionTab";
 import { 
     getProblemWithTestCases, 
     getUserProblemSubmissions,
@@ -89,7 +88,6 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem, _solve
 				setSubmissions([]);
 			}
 		} catch (error) {
-			console.error('Error fetching submissions:', error);
 			setSubmissions([]);
 		} finally {
 			setSubmissionsLoading(false);
@@ -120,11 +118,11 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem, _solve
 			);
 			
 		} catch (error) {
-			toast.error("Failed to update like", { position: "top-center", autoClose: 3000, theme: "dark" });
+			// Handle error silently
 		} finally {
 			setUpdating(false);
 		}
-	};
+	}
 
 	const handleDislike = async () => {
 		if (updating || !user?.id) {
@@ -150,7 +148,7 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem, _solve
 			);
 			
 		} catch (error) {
-			toast.error("Failed to update dislike", { position: "top-center", autoClose: 3000, theme: "dark" });
+			// Handle error silently
 		} finally {
 			setUpdating(false);
 		}
@@ -176,7 +174,7 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({ problem, _solve
 			);
 			
 		} catch (error) {
-			toast.error("Failed to update star", { position: "top-center", autoClose: 3000, theme: "dark" });
+			// Handle error silently
 		} finally {
 			setUpdating(false);
 		}
@@ -410,8 +408,7 @@ function useGetCurrentProblem(problemId: string) {
 					setCurrentProblem({
 						...problemData,
 						...stats,
-						// Mock difficulty for now - you can add this to your database schema later
-						difficulty: "Easy"
+											difficulty: problemData.difficulty || "Easy"
 					});
 					
 					// Set difficulty class with proper contrasting colors
@@ -428,7 +425,7 @@ function useGetCurrentProblem(problemId: string) {
 						}
 					};
 					
-					setProblemDifficultyClass(getDifficultyClass("Easy"));
+					setProblemDifficultyClass(getDifficultyClass(problemData.difficulty || "Easy"));
 				} else {
 					console.error('Failed to fetch problem from database');
 					setCurrentProblem(null);

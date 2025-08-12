@@ -10,7 +10,7 @@ const useLocalStorage = (key: string, initialValue: string) => {
 				return initialValue;
 			}
 		} catch (error) {
-			console.error(error);
+			// Handle error silently
 			return initialValue;
 		}
 	});
@@ -21,7 +21,7 @@ const useLocalStorage = (key: string, initialValue: string) => {
 				window.localStorage.setItem(key, JSON.stringify(value));
 			}
 		} catch (error) {
-			console.error(error);
+			// Handle error silently
 		}
 	}, [key, value]);
 

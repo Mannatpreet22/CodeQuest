@@ -35,7 +35,6 @@ export default function HomePageContent() {
           setSolvedCount(0)
         }
       } catch (error) {
-        console.error('Error fetching data:', error)
         // Fallback to default values
         setTotalProblems(0)
         setSolvedCount(0)
@@ -60,7 +59,6 @@ export default function HomePageContent() {
           randomProblem = await getRandomUnsolvedProblem(user.id)
         } catch (error) {
           // If no unsolved problems, fall back to any random problem
-          console.log('No unsolved problems found, getting any random problem')
           randomProblem = await getRandomProblem()
         }
       } else {
@@ -78,7 +76,6 @@ export default function HomePageContent() {
         })
       }
     } catch (error) {
-      console.error('Error getting random problem:', error)
       toast.error("Failed to get random problem", { 
         position: "top-center", 
         autoClose: 3000, 

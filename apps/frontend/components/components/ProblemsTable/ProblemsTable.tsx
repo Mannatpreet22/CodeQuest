@@ -26,6 +26,24 @@ function getAcceptanceNumber(id: string) {
   return 34 + (h % 360) / 10;
 }
 
+function getFrequencyBars(difficulty: "Easy" | "Medium" | "Hard", id: string): number {
+  // Base frequency based on difficulty - represents how often problems of this difficulty are attempted
+  const baseFrequency = {
+    "Easy": 7,      // Easy problems are attempted most frequently (interview prep, beginners)
+    "Medium": 5,    // Medium problems have moderate frequency (common interview questions)
+    "Hard": 3       // Hard problems are attempted less frequently (advanced users, specific companies)
+  };
+  
+  // Add some variation based on problem ID to make it unique and realistic
+  const h = hashString(id);
+  const variation = (h % 3) - 1; // -1, 0, or 1
+  
+  // Ensure frequency stays within 1-8 range
+  const frequency = Math.max(1, Math.min(8, baseFrequency[difficulty] + variation));
+  
+  return frequency;
+}
+
 function getDifficultyStyles(diff: "Easy" | "Medium" | "Hard") {
   return diff === "Easy"
     ? "text-dark-green-s bg-dark-green-s/10 border-dark-green-s/20"
@@ -59,7 +77,9 @@ const ProblemsTable: React.FC<ProblemsTableProps> = ({ query: externalQuery }) =
     let list = problemsList.map((p) => ({
       ...p,
       acceptance: getAcceptanceNumber(p.id),
-      freqBars: (hashString(p.id) % 9) as number, // 0..8
+      // Frequency bars represent how often problems of this difficulty are attempted
+      // Easy: 6-8 bars, Medium: 4-6 bars, Hard: 2-4 bars
+      freqBars: getFrequencyBars(p.difficulty as "Easy" | "Medium" | "Hard", p.id),
     }));
 
     if (difficulty !== "All") list = list.filter((p) => p.difficulty === difficulty);
@@ -139,7 +159,15 @@ const ProblemsTable: React.FC<ProblemsTableProps> = ({ query: externalQuery }) =
         <div className="w-6" />
         <div className="flex-1">Title</div>
         <div className="w-28 flex justify-center items-center">Difficulty</div>
-        <div className="w-32 text-right">Frequency</div>
+        <div className="w-32 text-right group relative">
+          Frequency
+          <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-dark-layer-1 text-dark-label-2 text-xs rounded-lg border border-dark-divider-border-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+            Based on difficulty level
+            <br />
+            Higher = More frequently attempted
+            <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-dark-layer-1"></div>
+          </div>
+        </div>
       </div>
 
       {/* Rows */}
@@ -191,15 +219,24 @@ const ProblemsTable: React.FC<ProblemsTableProps> = ({ query: externalQuery }) =
                   {problem.difficulty === "Medium" ? "Med." : problem.difficulty}
                 </div>
 
-                <div className="flex items-center space-x-1 w-32 justify-end">
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className={`w-1 h-4 rounded-sm transition-colors duration-200 ${
-                        i < problem.freqBars ? "bg-brand-orange/60" : "bg-dark-fill-2 group-hover:bg-dark-fill-3"
-                      }`}
-                    />
-                  ))}
+                <div className="flex items-center space-x-1 w-32 justify-end group relative">
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: 8 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className={`w-1 h-4 rounded-sm transition-colors duration-200 ${
+                          i < problem.freqBars ? "bg-brand-orange/60" : "bg-dark-fill-2 group-hover:bg-dark-fill-3"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  {/* Tooltip */}
+                  <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-dark-layer-1 text-dark-label-2 text-xs rounded-lg border border-dark-divider-border-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                    Frequency: {problem.freqBars}/8
+                    <br />
+                    Based on difficulty level
+                    <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-dark-layer-1"></div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -236,7 +273,7 @@ function useGetProblems() {
             id: question.id,
             title: question.title,
             category: "Array",
-            difficulty: (["Easy", "Medium", "Hard"] as const)[index % 3],
+            difficulty: (question.difficulty as "Easy" | "Medium" | "Hard") || "Easy",
             likes: 0,
             dislikes: 0,
             order: index + 1,

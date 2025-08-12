@@ -3,8 +3,6 @@ import axios from 'axios';
 // API base URL - can be moved to environment variables
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
-console.log('API_BASE_URL:', API_BASE_URL); // Debug log
-
 // Types for API responses based on the Prisma schema
 interface Example {
     id: number;
@@ -18,6 +16,7 @@ interface Question {
     id: string;
     title: string;
     body: string;
+    difficulty?: string;
     createdAt?: string;
     updatedAt?: string;
     examples?: Example[];
@@ -72,11 +71,7 @@ interface SubmissionResponse {
 // Get all questions from the database
 export const getAllQuestions = async (): Promise<Question[] | null> => {
     try {
-        console.log('Fetching questions from:', `${API_BASE_URL}/api/questions/all-questions`); // Debug log
         const response = await axios.get(`${API_BASE_URL}/api/questions/all-questions`);
-        
-        console.log('API Response status:', response.status); // Debug log
-        console.log('API Response data:', response.data); // Debug log
         
         if (response.status !== 200) {
             throw new Error('Failed to fetch all questions');
@@ -84,13 +79,6 @@ export const getAllQuestions = async (): Promise<Question[] | null> => {
         
         return response.data;
     } catch (error) {
-        console.error('Error fetching all questions:', error);
-        console.error('Error details:', {
-            message: error instanceof Error ? error.message : 'Unknown error',
-            response: (error as any)?.response?.data,
-            status: (error as any)?.response?.status,
-            config: (error as any)?.config
-        });
         return null;
     }
 };
@@ -108,7 +96,6 @@ export const getProblemDescription = async (pid: string): Promise<Question | nul
         
         return response.data;
     } catch (error) {
-        console.error('Error fetching problem description:', error);
         return null;
     }
 };
@@ -124,7 +111,6 @@ export const getProblemWithTestCases = async (pid: string): Promise<QuestionWith
         
         return response.data;
     } catch (error) {
-        console.error('Error fetching problem with test cases:', error);
         return null;
     }
 };
@@ -140,7 +126,6 @@ export const getProblemWithAllTestCases = async (pid: string): Promise<QuestionW
         
         return response.data;
     } catch (error) {
-        console.error('Error fetching problem with all test cases:', error);
         return null;
     }
 };
@@ -156,7 +141,6 @@ export const getTemplateCode = async (pid: string, language: string): Promise<Te
         
         return response.data;
     } catch (error) {
-        console.error('Error fetching template code:', error);
         return null;
     }
 };
@@ -166,13 +150,11 @@ export const runCode = async (submission: CodeSubmission): Promise<SubmissionRes
     try {
         // Set timeout to 10 seconds for code execution
         const response = await axios.post(`${API_BASE_URL}/api/submit/run`, submission, {
-            timeout: 10000 // 10 seconds timeout
+            timeout: 30000 // 30 seconds timeout
         });
         
         return response.data;
     } catch (error: any) {
-        console.error('Error running code:', error);
-        
         // Check if it's a timeout error
         if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
             return {
@@ -209,8 +191,6 @@ export const submitCode = async (submission: CodeSubmission): Promise<Submission
         
         return response.data;
     } catch (error: any) {
-        console.error('Error submitting code:', error);
-        
         // Check if it's a timeout error
         if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
             return {
@@ -244,7 +224,6 @@ export const getSubmissionStatus = async (submissionId: string): Promise<Submiss
         
         return response.data;
     } catch (error: any) {
-        console.error('Error fetching submission status:', error);
         return {
             success: false,
             message: error.response?.data?.message || 'Failed to fetch submission status'
@@ -259,7 +238,6 @@ export const getUserSubmissions = async (userId: string): Promise<SubmissionResp
         
         return response.data;
     } catch (error: any) {
-        console.error('Error fetching user submissions:', error);
         return {
             success: false,
             message: error.response?.data?.message || 'Failed to fetch user submissions'
@@ -274,7 +252,6 @@ export const getUserProblemSubmissions = async (userId: string, problemId: strin
         
         return response.data;
     } catch (error: any) {
-        console.error('Error fetching user problem submissions:', error);
         return {
             success: false,
             message: error.response?.data?.message || 'Failed to fetch user problem submissions'
@@ -300,7 +277,6 @@ export const getUserInteraction = async (questionId: string, userId: string): Pr
         
         return response.data;
     } catch (error) {
-        console.error('Error fetching user interaction:', error);
         return { liked: false, disliked: false, starred: false };
     }
 };
@@ -316,7 +292,6 @@ export const getQuestionStats = async (questionId: string): Promise<any> => {
         
         return response.data;
     } catch (error) {
-        console.error('Error fetching question stats:', error);
         return { likes: 0, dislikes: 0, stars: 0 };
     }
 };
@@ -334,7 +309,6 @@ export const toggleLike = async (questionId: string, userId: string): Promise<an
         
         return response.data;
     } catch (error) {
-        console.error('Error toggling like:', error);
         throw error;
     }
 };
@@ -352,7 +326,6 @@ export const toggleDislike = async (questionId: string, userId: string): Promise
         
         return response.data;
     } catch (error) {
-        console.error('Error toggling dislike:', error);
         throw error;
     }
 };
@@ -370,7 +343,6 @@ export const toggleStar = async (questionId: string, userId: string): Promise<an
         
         return response.data;
     } catch (error) {
-        console.error('Error toggling star:', error);
         throw error;
     }
 };
@@ -386,7 +358,6 @@ export const getUserSolvedCount = async (userId: string): Promise<number> => {
         
         return response.data.solvedCount;
     } catch (error) {
-        console.error('Error fetching solved count:', error);
         return 0;
     }
 };
@@ -402,7 +373,6 @@ export const getTotalQuestionsCount = async (): Promise<number> => {
         
         return response.data.totalCount;
     } catch (error) {
-        console.error('Error fetching total count:', error);
         return 0;
     }
 };
@@ -418,7 +388,6 @@ export const getRandomProblem = async (): Promise<any> => {
         
         return response.data;
     } catch (error) {
-        console.error('Error fetching random problem:', error);
         throw error;
     }
 };
@@ -434,7 +403,6 @@ export const getRandomUnsolvedProblem = async (userId: string): Promise<any> => 
         
         return response.data;
     } catch (error) {
-        console.error('Error fetching random unsolved problem:', error);
         throw error;
     }
 };
