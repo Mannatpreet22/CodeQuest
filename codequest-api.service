@@ -1,0 +1,34 @@
+[Unit]
+Description=CodeQuest API Service
+Documentation=https://github.com/your-username/codequest
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/api-codequest
+Environment=NODE_ENV=production
+Environment=PORT=3000
+ExecStart=/usr/bin/node dist/index.js
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=codequest-api
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/www/api-codequest
+ReadWritePaths=/var/log
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target 
