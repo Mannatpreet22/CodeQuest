@@ -1,9 +1,6 @@
 services:
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: api-runner
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-your-username/codequest}:${TAG:-latest}
     ports:
       - "3000:3000"
     environment:
@@ -15,7 +12,7 @@ services:
       - CLERK_WEBHOOK_SECRET=${CLERK_WEBHOOK_SECRET}
       - CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
       - CLERK_PUBLISHABLE_KEY=${CLERK_PUBLISHABLE_KEY}
-      - NEXT_PUBLIC_API_URL=http://localhost:3000
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:3000}
     depends_on:
       redis:
         condition: service_healthy
@@ -24,6 +21,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
     restart: unless-stopped
     networks:
       - codequest-network
@@ -31,10 +29,7 @@ services:
       - ./logs/api:/app/logs
 
   optimus-worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: worker-runner
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-your-username/codequest}:${TAG:-latest}
     environment:
       - NODE_ENV=production
       - DATABASE_URL=${DATABASE_URL}
@@ -71,13 +66,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
     restart: unless-stopped
     networks:
       - codequest-network
-
-  
-
-  
 
 networks:
   codequest-network:

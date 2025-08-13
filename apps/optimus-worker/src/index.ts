@@ -254,13 +254,24 @@ class OptimusWorker {
     }
 
     private modifyCodeForTestCases(code: string, lang: string, testCaseInputs: any[]): string {
+        console.log('🔍 modifyCodeForTestCases called with language:', lang);
+        console.log('🔍 Language lowercase:', lang.toLowerCase());
+        
         if (lang.toLowerCase() === 'javascript' || lang.toLowerCase() === 'js') {
+            console.log('🔍 Generating JavaScript driver');
             return this.generateJavaScriptDriver(code);
         } else if (lang.toLowerCase() === 'python' || lang.toLowerCase() === 'py') {
+            console.log('🔍 Generating Python driver');
             return this.generatePythonDriver(code);
         } else if (lang.toLowerCase() === 'cpp' || lang.toLowerCase() === 'c++') {
+            console.log('🔍 Generating C++ driver');
             return this.generateCppDriver(code);
+        } else if (lang.toLowerCase() === 'java') {
+            console.log('🔍 Generating Java driver');
+            return this.generateJavaDriver(code);
         }
+        
+        console.log('🔍 No driver generated, returning original code');
         return code;
     }
 
@@ -434,6 +445,135 @@ int main() {
 }`;
     }
 
+    private generateJavaDriver(code: string): string {
+        // Extract the Solution class and its method
+        const classMatch = code.match(/public class Solution\s*\{[\s\S]*?\}/);
+        
+        if (!classMatch) {
+            console.log('⚠️ Could not extract Java Solution class, using original code');
+            return code;
+        }
+
+        // Extract the method signature and body
+        const methodMatch = code.match(/public\s+(\w+)\s+(\w+)\s*\(([^)]*)\)\s*\{[\s\S]*?\}/);
+        
+        if (!methodMatch) {
+            console.log('⚠️ Could not extract Java method, using original code');
+            console.log('🔍 Code to parse:', code);
+            return code;
+        }
+
+        const returnType = methodMatch[1];
+        const methodName = methodMatch[2];
+        const params = methodMatch[3] ? methodMatch[3].split(',').map(p => p.trim()) : [];
+        
+        if (!returnType || !methodName) {
+            console.log('⚠️ Could not extract return type or method name, using original code');
+            return code;
+        }
+        
+        console.log('🔍 Extracted Java method:', methodName);
+        console.log('🔍 Return type:', returnType);
+        console.log('🔍 Parameters:', params);
+
+        // Extract the entire method body - use a simpler approach
+        const methodStart = code.indexOf(`public ${returnType} ${methodName}(`);
+        if (methodStart === -1) {
+            console.log('⚠️ Could not find method start, using original code');
+            return code;
+        }
+        
+        // Find the opening brace after the method signature
+        const signatureEnd = code.indexOf('{', methodStart);
+        if (signatureEnd === -1) {
+            console.log('⚠️ Could not find method opening brace, using original code');
+            return code;
+        }
+        
+        // Find the closing brace by counting braces
+        let braceCount = 1;
+        let methodEnd = signatureEnd + 1;
+        for (let i = signatureEnd + 1; i < code.length; i++) {
+            if (code[i] === '{') braceCount++;
+            else if (code[i] === '}') braceCount--;
+            if (braceCount === 0) {
+                methodEnd = i;
+                break;
+            }
+        }
+        
+        const methodBody = code.substring(signatureEnd + 1, methodEnd);
+
+        // Generate parameter reading code based on parameter types
+        // Read all input on a single line and parse it
+        const readInputsCode = `        Scanner scanner = new Scanner(System.in);
+        String input = scanner.nextLine();
+        String[] parts = input.split(" ");
+        
+        ${params.map((param, i) => {
+            const paramParts = param.trim().split(' ');
+            const paramType = paramParts[0];
+            const paramName = paramParts[paramParts.length - 1];
+            
+            if (!paramType || !paramName) {
+                return '';
+            }
+            
+            if (paramType === 'int[]' || paramType === 'String[]') {
+                return `        ${paramType} ${paramName} = new ${paramType}[parts.length];
+        for (int i = 0; i < parts.length; i++) {
+            ${paramType === 'int[]' ? `${paramName}[i] = Integer.parseInt(parts[i]);` : `${paramName}[i] = parts[i];`}
+        }`;
+            } else if (paramType === 'int') {
+                return `        int ${paramName} = Integer.parseInt(parts[${i}]);`;
+            } else if (paramType === 'String') {
+                return `        String ${paramName} = parts[${i}];`;
+            } else if (paramType === 'boolean') {
+                return `        boolean ${paramName} = Boolean.parseBoolean(parts[${i}]);`;
+            } else if (paramType === 'double') {
+                return `        double ${paramName} = Double.parseDouble(parts[${i}]);`;
+            } else {
+                return `        ${paramType} ${paramName} = ${paramType}.valueOf(parts[${i}]);`;
+            }
+        }).filter(code => code !== '').join('\n')}`;
+
+        // Generate the main method
+        const mainMethod = `    public static void main(String[] args) {
+${readInputsCode}
+        
+        Main solution = new Main();
+        ${returnType} result = solution.${methodName}(${params.map(p => p.trim().split(' ').pop()).join(', ')});
+        
+        // Handle different return types for output
+        if (result instanceof int[]) {
+            System.out.println(Arrays.toString(result));
+        } else if (result instanceof String[]) {
+            System.out.println(Arrays.toString(result));
+        } else {
+            System.out.println(result);
+        }
+    }`;
+
+        // Return the complete Java program
+        const generatedCode = `import java.util.*;
+import java.util.Arrays;
+
+public class Main {
+    public ${returnType} ${methodName}(${params.join(', ')}) {
+${methodBody}
+    }
+    
+${mainMethod}
+}`;
+
+        console.log('🔍 Generated Java code:');
+        console.log('```java');
+        console.log(generatedCode);
+        console.log('```');
+        
+        return generatedCode;
+    }
+
     private async runTestCaseWithJudge0(submission: SubmissionMessage, testCase: any): Promise<ExecutionResult> {
         try {
             console.log('📝 Original Code Received:')
@@ -504,6 +644,8 @@ int main() {
             }
 
             // Submit to Judge0
+            console.log('🔍 Language detected:', submission.lang);
+            console.log('🔍 Language lowercase:', submission.lang.toLowerCase());
             const modifiedCode = this.modifyCodeForTestCases(submission.code, submission.lang, testCase.testCaseInputs)
             
             console.log('🔧 Generated Code for Execution:')

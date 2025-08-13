@@ -58,9 +58,9 @@ export class Judge0ConnectionManager {
         console.log(`📡 Primary provider: ${this.currentProvider}`)
         console.log(`🔄 Fallback provider: ${Judge0Provider.SELF_HOSTED}`)
         console.log(`🔄 RapidAPI base URL: ${this.rapidApiConfig.baseUrl}`)
-        console.log(`🔄 RapidAPI API Key: ${this.rapidApiConfig.apiKey}`)
+        console.log(`🔄 RapidAPI API Key: ${this.rapidApiConfig.apiKey ? '***' + this.rapidApiConfig.apiKey.slice(-4) : 'Not set'}`)
         console.log(`🔄 Self-hosted base URL: ${this.selfHostedConfig.baseUrl}`)
-        console.log(`🔄 Self-hosted API Key: ${this.selfHostedConfig.apiKey}`)
+        console.log(`🔄 Self-hosted API Key: ${this.selfHostedConfig.apiKey ? '***' + this.selfHostedConfig.apiKey.slice(-4) : 'Not set'}`)
     }
 
     public getLanguageId(lang: string): number {
