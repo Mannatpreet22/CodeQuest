@@ -67,6 +67,9 @@ jobs:
             cp /var/www/codequest/.env .
           fi
           
+          # Set staging port to avoid conflicts
+          export API_PORT=3001
+          
           docker-compose pull
           docker-compose down
           docker-compose up -d

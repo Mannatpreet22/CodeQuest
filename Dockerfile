@@ -47,7 +47,6 @@ COPY . .
 # Generate Prisma client
 RUN npx prisma generate --schema=./packages/db/prisma/schema.prisma
 
-# Build all packages and applications
 RUN npm run build -w @repo/db && \
     npm run build -w @repo/redis && \
     npm run build -w @repo/commons && \
@@ -131,32 +130,3 @@ ENTRYPOINT ["dumb-init", "--"]
 
 # Start the worker
 CMD ["node", "dist/index.js"]
-
-# Stage 6: Frontend Runner (Optional - for full-stack deployment)
-FROM base AS frontend-runner
-
-# Set production environment
-ENV NODE_ENV=production
-ENV PORT=3002
-ENV HOSTNAME="0.0.0.0"
-
-# Copy built frontend application
-COPY --from=builder --chown=codequest:codequest /app/apps/frontend/.next/standalone ./
-COPY --from=builder --chown=codequest:codequest /app/apps/frontend/.next/static ./.next/static
-COPY --from=builder --chown=codequest:codequest /app/apps/frontend/public ./public
-
-# Switch to non-root user
-USER codequest
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3002/ || exit 1
-
-# Expose port
-EXPOSE 3002
-
-# Use dumb-init for proper signal handling
-ENTRYPOINT ["dumb-init", "--"]
-
-# Start the frontend
-CMD ["node", "server.js"] 

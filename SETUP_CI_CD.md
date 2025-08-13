@@ -2,9 +2,10 @@
 
 ## What I've Set Up
 
-I've configured a complete CI/CD pipeline for your CodeQuest project that will automatically:
+I've configured a complete CI/CD pipeline for your CodeQuest **backend** that will automatically:
 
 **✅ Compatibility Notes:**
+- **Backend-only deployment** - API and Worker services only
 - Works with your existing `docker-compose.yml` (no database service required)
 - Automatically detects if database service exists for migrations/backups
 - Flexible directory handling for staging/production
@@ -52,7 +53,7 @@ CLERK_SECRET_KEY=your_clerk_secret_key
 CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
 
 # API Configuration
-NEXT_PUBLIC_API_URL=http://143.110.213.227:3000
+API_URL=https://api.codequest.com
 
 # Judge0 Configuration
 JUDGE0_RAPIDAPI_URL=https://judge0-ce.p.rapidapi.com
@@ -66,11 +67,12 @@ JUDGE0_SELF_HOSTED_KEY=your_judge0_self_hosted_key
 On your server (143.110.213.227), run:
 
 ```bash
-# Make the deploy script executable
-chmod +x scripts/deploy.sh
+# Create the application directory
+mkdir -p /var/www/codequest
+cd /var/www/codequest
 
-# Run the first deployment
-./scripts/deploy.sh deploy
+# Create .env file with your configuration
+# Copy docker-compose.yml to the server
 ```
 
 ## How It Works
@@ -80,7 +82,9 @@ chmod +x scripts/deploy.sh
 2. **Push to `main`** → Automatic production deployment to `/var/www/codequest`
 3. **Manual deployment** → Use GitHub Actions "Deploy to Production" workflow
 
-**Note:** Both environments run on the same server (143.110.213.227) but in separate directories. You can configure different ports by setting `API_PORT` in your `.env` files.
+**Note:** Both environments run on the same server (143.110.213.227) but in separate directories:
+- **Staging**: Port 3001 (`/var/www/codequest-staging`)
+- **Production**: Port 3000 (`/var/www/codequest`)
 
 ### What Happens on Each Deployment
 1. ✅ Code is tested and built
@@ -101,10 +105,10 @@ chmod +x scripts/deploy.sh
 - `.github/workflows/ci.yml` - Continuous integration
 - `.github/workflows/cd-staging.yml` - Staging deployment (same server)
 - `.github/workflows/cd-production.yml` - Production deployment
-- `scripts/deploy.sh` - Server deployment script
 
 ## Benefits
 
+✅ **Backend-only deployment** - API and Worker services only  
 ✅ **No more manual server setup** - Everything is automated  
 ✅ **Zero-downtime deployments** - Users never see downtime  
 ✅ **Automatic rollbacks** - Failed deployments are reverted  
@@ -125,7 +129,11 @@ ssh root@143.110.213.227
 mkdir -p /var/www/codequest
 cd /var/www/codequest
 # Create .env file with your configuration
-# Copy docker-compose.yml and deploy.sh
+# Copy docker-compose.yml to the server
 ```
 
-Your CodeQuest platform will now automatically deploy to staging (port 3000) and production (port 3000) on the same server! 🚀 
+Your CodeQuest **backend** (API + Worker) will now automatically deploy to:
+- **Staging**: Port 3001 (`/var/www/codequest-staging`)
+- **Production**: Port 3000 (`/var/www/codequest`)
+
+Both on the same server (143.110.213.227)! 🚀 

@@ -151,6 +151,12 @@ jobs:
             exit 1
           fi
           
+          # Check if worker is processing (basic health check)
+          if docker-compose logs --tail=10 optimus-worker | grep -q "error\|Error\|ERROR"; then
+            echo "Worker has errors in logs"
+            exit 1
+          fi
+          
           echo "All services are healthy!"
           
  
