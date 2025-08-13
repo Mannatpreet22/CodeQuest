@@ -2,20 +2,20 @@
 
 ## What I've Set Up
 
-I've configured a simple file-sync CI/CD pipeline for your CodeQuest **backend** that will automatically:
+I've configured a simple file sync CI/CD pipeline for your CodeQuest **backend** that will automatically:
 
 **✅ Compatibility Notes:**
 - **Backend-only deployment** - API and Worker services only
+- **Simple file sync** - No Docker image building, just syncs updated files
+- **Manual deployment** - You run `docker-compose up -d` manually on server
 - Works with your existing `docker-compose.yml` (no database service required)
-- Automatically detects if database service exists for migrations/backups
 - Flexible directory handling for staging/production
-- Basic health checks that work with your current setup
 
 1. **Test your code** on every push/PR
-2. **Build Docker images** and push them to GitHub Container Registry
-3. **Sync files to staging** when you push to `develop` branch
-4. **Sync files to production** when you push to `main` branch
-5. **Manual deployment** - you run `docker-compose` when ready
+2. **Sync updated files** to your server automatically
+3. **Sync to staging** when you push to `develop` branch
+4. **Sync to production** when you push to `main` branch
+5. **Manual deployment** - You control when to deploy with `docker-compose up -d`
 
 ## What You Need to Do
 
@@ -78,9 +78,9 @@ cd /var/www/codequest
 ## How It Works
 
 ### Development Flow
-1. **Push to `develop`** → Files synced to `/var/www/codequest-staging`
-2. **Push to `main`** → Files synced to `/var/www/codequest`
-3. **Manual deployment** → You run `docker-compose up -d` when ready
+1. **Push to `develop`** → Automatic staging deployment to `/var/www/codequest-staging`
+2. **Push to `main`** → Automatic production deployment to `/var/www/codequest`
+3. **Manual deployment** → Use GitHub Actions "Deploy to Production" workflow
 
 **Note:** Both environments run on the same server (143.110.213.227) but in separate directories:
 - **Staging**: Port 3001 (`/var/www/codequest-staging`)
@@ -88,31 +88,32 @@ cd /var/www/codequest
 
 ### What Happens on Each Sync
 1. ✅ Code is tested and built
-2. ✅ Docker images are created and pushed to registry
-3. ✅ Files are synced to your server
-4. ✅ You manually run `docker-compose up -d` when ready
-5. ✅ Full control over when and how to deploy
+2. ✅ Updated files are synced to your server
+3. ✅ `docker-compose.yml` is copied to the right directory
+4. ✅ `.env` file is created with environment variables
+5. ✅ You manually run `docker-compose up -d` when ready
+6. ✅ Full control over deployment timing
 
-### Benefits of This Approach
-- **Simple and reliable** - No complex deployment scripts
-- **Full control** - You decide when to deploy
-- **Easy debugging** - You can see exactly what's happening
-- **No deployment failures** - Files are just synced, not deployed
+### Monitoring
+- **Manual control** - You decide when to deploy
+- **Easy rollback** - Just run `docker-compose down && docker-compose up -d`
+- **File sync** - Always have the latest code on server
 
 ## Files Created
 
 - `.github/workflows/ci.yml` - Continuous integration
-- `.github/workflows/cd-staging.yml` - File sync to staging
-- `.github/workflows/cd-production.yml` - File sync to production
+- `.github/workflows/cd-staging.yml` - Staging deployment (same server)
+- `.github/workflows/cd-production.yml` - Production deployment
 
 ## Benefits
 
 ✅ **Backend-only deployment** - API and Worker services only  
-✅ **Simple file sync** - No complex deployment scripts  
-✅ **Full control** - You decide when to deploy  
-✅ **Reliable** - No deployment failures  
-✅ **Easy debugging** - You can see exactly what's happening  
-✅ **Manual deployment** - Run `docker-compose` when ready  
+✅ **Simple file sync** - No complex Docker image building  
+✅ **Manual control** - You decide when to deploy  
+✅ **Easy rollback** - Just restart containers  
+✅ **Always up-to-date** - Latest code always on server  
+✅ **No registry needed** - Build Docker images on server  
+✅ **Easy debugging** - Full control over deployment process  
 
 ## Next Steps
 
@@ -120,6 +121,7 @@ cd /var/www/codequest
 2. **Configure the secrets** in GitHub (only need PRODUCTION_HOST, PRODUCTION_USERNAME, PRODUCTION_SSH_KEY)
 3. **Set up your server** (143.110.213.227) with the environment variables
 4. **Test the pipeline** by pushing to `develop` branch
+5. **Deploy manually** by running `docker-compose up -d` on server
 
 **Server Setup:**
 ```bash
@@ -130,8 +132,10 @@ cd /var/www/codequest
 # Copy docker-compose.yml to the server
 ```
 
-Your CodeQuest **backend** (API + Worker) files will now automatically sync to:
-- **Staging**: `/var/www/codequest-staging` (port 3001)
-- **Production**: `/var/www/codequest` (port 3000)
+Your CodeQuest **backend** (API + Worker) will now automatically sync files to:
+- **Staging**: Port 3001 (`/var/www/codequest-staging`)
+- **Production**: Port 3000 (`/var/www/codequest`)
 
-Then you manually run `docker-compose up -d` when ready! 🚀 
+Both on the same server (143.110.213.227)! 
+
+**Deploy manually** by running `docker-compose up -d` when ready! 🚀 
