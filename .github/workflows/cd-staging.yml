@@ -1,4 +1,4 @@
-name: Deploy to Staging
+name: Deploy to Staging (Same Server)
 
 on:
   push:
@@ -53,15 +53,18 @@ jobs:
     - name: Deploy to staging server
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.STAGING_HOST }}
-        username: ${{ secrets.STAGING_USERNAME }}
-        key: ${{ secrets.STAGING_SSH_KEY }}
+        host: ${{ secrets.PRODUCTION_HOST }}
+        username: ${{ secrets.PRODUCTION_USERNAME }}
+        key: ${{ secrets.PRODUCTION_SSH_KEY }}
         script: |
-          # Try staging directory first, fallback to main directory
-          if [ -d "/var/www/codequest-staging" ]; then
-            cd /var/www/codequest-staging
-          else
-            cd /var/www/codequest
+          # Deploy to staging directory on same server
+          mkdir -p /var/www/codequest-staging
+          cd /var/www/codequest-staging
+          
+          # Copy production docker-compose if staging doesn't exist
+          if [ ! -f "docker-compose.yml" ]; then
+            cp /var/www/codequest/docker-compose.yml .
+            cp /var/www/codequest/.env .
           fi
           
           docker-compose pull

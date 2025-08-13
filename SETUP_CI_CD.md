@@ -23,16 +23,14 @@ I've configured a complete CI/CD pipeline for your CodeQuest project that will a
 Go to your GitHub repository → Settings → Secrets and variables → Actions, and add these secrets:
 
 ```
-STAGING_HOST=your-staging-server-ip
-STAGING_USERNAME=your-staging-username
-STAGING_SSH_KEY=your-staging-ssh-private-key
-
-PRODUCTION_HOST=your-production-server-ip
-PRODUCTION_USERNAME=your-production-username
-PRODUCTION_SSH_KEY=your-production-ssh-private-key
+PRODUCTION_HOST=143.110.213.227
+PRODUCTION_USERNAME=root
+PRODUCTION_SSH_KEY=your-ssh-private-key
 
 SLACK_WEBHOOK_URL=your-slack-webhook-url (optional)
 ```
+
+**Note:** Both staging and production deploy to the same server (143.110.213.227) but in different directories.
 
 ### 2. Update Environment Variables
 
@@ -56,7 +54,7 @@ CLERK_SECRET_KEY=your_clerk_secret_key
 CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
 
 # API Configuration
-NEXT_PUBLIC_API_URL=https://your-domain.com
+NEXT_PUBLIC_API_URL=http://143.110.213.227:3000
 
 # Judge0 Configuration
 JUDGE0_RAPIDAPI_URL=https://judge0-ce.p.rapidapi.com
@@ -67,7 +65,7 @@ JUDGE0_SELF_HOSTED_KEY=your_judge0_self_hosted_key
 
 ### 3. Server Setup
 
-On your server, run:
+On your server (143.110.213.227), run:
 
 ```bash
 # Make the deploy script executable
@@ -80,9 +78,11 @@ chmod +x scripts/deploy.sh
 ## How It Works
 
 ### Development Flow
-1. **Push to `develop`** → Automatic staging deployment
-2. **Push to `main`** → Automatic production deployment
+1. **Push to `develop`** → Automatic staging deployment to `/var/www/codequest-staging`
+2. **Push to `main`** → Automatic production deployment to `/var/www/codequest`
 3. **Manual deployment** → Use GitHub Actions "Deploy to Production" workflow
+
+**Note:** Both environments run on the same server (143.110.213.227) but in separate directories. You can configure different ports by setting `API_PORT` in your `.env` files.
 
 ### What Happens on Each Deployment
 1. ✅ Code is tested and built
@@ -102,10 +102,9 @@ chmod +x scripts/deploy.sh
 ## Files Created
 
 - `.github/workflows/ci.yml` - Continuous integration
-- `.github/workflows/cd-staging.yml` - Staging deployment
+- `.github/workflows/cd-staging.yml` - Staging deployment (same server)
 - `.github/workflows/cd-production.yml` - Production deployment
 - `scripts/deploy.sh` - Server deployment script
-- `scripts/setup-server.sh` - Initial server setup
 
 ## Benefits
 
@@ -119,8 +118,17 @@ chmod +x scripts/deploy.sh
 ## Next Steps
 
 1. **Push this code** to your GitHub repository
-2. **Configure the secrets** in GitHub
-3. **Set up your server** with the environment variables
+2. **Configure the secrets** in GitHub (only need PRODUCTION_HOST, PRODUCTION_USERNAME, PRODUCTION_SSH_KEY)
+3. **Set up your server** (143.110.213.227) with the environment variables
 4. **Test the pipeline** by pushing to `develop` branch
 
-Your CodeQuest platform will now automatically deploy every time you update the code! 🚀 
+**Server Setup:**
+```bash
+ssh root@143.110.213.227
+mkdir -p /var/www/codequest
+cd /var/www/codequest
+# Create .env file with your configuration
+# Copy docker-compose.yml and deploy.sh
+```
+
+Your CodeQuest platform will now automatically deploy to staging (port 3000) and production (port 3000) on the same server! 🚀 
