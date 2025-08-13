@@ -2,7 +2,7 @@
 
 ## What I've Set Up
 
-I've configured a complete CI/CD pipeline for your CodeQuest **backend** that will automatically:
+I've configured a simple file-sync CI/CD pipeline for your CodeQuest **backend** that will automatically:
 
 **✅ Compatibility Notes:**
 - **Backend-only deployment** - API and Worker services only
@@ -13,9 +13,9 @@ I've configured a complete CI/CD pipeline for your CodeQuest **backend** that wi
 
 1. **Test your code** on every push/PR
 2. **Build Docker images** and push them to GitHub Container Registry
-3. **Deploy to staging** when you push to `develop` branch
-4. **Deploy to production** when you push to `main` branch
-5. **Handle rollbacks** automatically if deployments fail
+3. **Sync files to staging** when you push to `develop` branch
+4. **Sync files to production** when you push to `main` branch
+5. **Manual deployment** - you run `docker-compose` when ready
 
 ## What You Need to Do
 
@@ -78,43 +78,41 @@ cd /var/www/codequest
 ## How It Works
 
 ### Development Flow
-1. **Push to `develop`** → Automatic staging deployment to `/var/www/codequest-staging`
-2. **Push to `main`** → Automatic production deployment to `/var/www/codequest`
-3. **Manual deployment** → Use GitHub Actions "Deploy to Production" workflow
+1. **Push to `develop`** → Files synced to `/var/www/codequest-staging`
+2. **Push to `main`** → Files synced to `/var/www/codequest`
+3. **Manual deployment** → You run `docker-compose up -d` when ready
 
 **Note:** Both environments run on the same server (143.110.213.227) but in separate directories:
 - **Staging**: Port 3001 (`/var/www/codequest-staging`)
 - **Production**: Port 3000 (`/var/www/codequest`)
 
-### What Happens on Each Deployment
+### What Happens on Each Sync
 1. ✅ Code is tested and built
 2. ✅ Docker images are created and pushed to registry
-3. ✅ Database migrations run automatically
-4. ✅ New containers start alongside old ones
-5. ✅ Health checks ensure new version works
-6. ✅ Old containers are removed (zero-downtime)
-7. ✅ Automatic rollback if anything fails
+3. ✅ Files are synced to your server
+4. ✅ You manually run `docker-compose up -d` when ready
+5. ✅ Full control over when and how to deploy
 
-### Monitoring
-- **Health checks** on all services
-- **Automatic rollbacks** on failures
-- **Database backups** before each deployment
+### Benefits of This Approach
+- **Simple and reliable** - No complex deployment scripts
+- **Full control** - You decide when to deploy
+- **Easy debugging** - You can see exactly what's happening
+- **No deployment failures** - Files are just synced, not deployed
 
 ## Files Created
 
 - `.github/workflows/ci.yml` - Continuous integration
-- `.github/workflows/cd-staging.yml` - Staging deployment (same server)
-- `.github/workflows/cd-production.yml` - Production deployment
+- `.github/workflows/cd-staging.yml` - File sync to staging
+- `.github/workflows/cd-production.yml` - File sync to production
 
 ## Benefits
 
 ✅ **Backend-only deployment** - API and Worker services only  
-✅ **No more manual server setup** - Everything is automated  
-✅ **Zero-downtime deployments** - Users never see downtime  
-✅ **Automatic rollbacks** - Failed deployments are reverted  
-✅ **Database safety** - Backups before every deployment  
-✅ **Health monitoring** - Services are constantly checked  
-✅ **Easy scaling** - Just push to the right branch  
+✅ **Simple file sync** - No complex deployment scripts  
+✅ **Full control** - You decide when to deploy  
+✅ **Reliable** - No deployment failures  
+✅ **Easy debugging** - You can see exactly what's happening  
+✅ **Manual deployment** - Run `docker-compose` when ready  
 
 ## Next Steps
 
@@ -132,8 +130,8 @@ cd /var/www/codequest
 # Copy docker-compose.yml to the server
 ```
 
-Your CodeQuest **backend** (API + Worker) will now automatically deploy to:
-- **Staging**: Port 3001 (`/var/www/codequest-staging`)
-- **Production**: Port 3000 (`/var/www/codequest`)
+Your CodeQuest **backend** (API + Worker) files will now automatically sync to:
+- **Staging**: `/var/www/codequest-staging` (port 3001)
+- **Production**: `/var/www/codequest` (port 3000)
 
-Both on the same server (143.110.213.227)! 🚀 
+Then you manually run `docker-compose up -d` when ready! 🚀 

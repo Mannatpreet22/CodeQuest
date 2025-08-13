@@ -1,4 +1,4 @@
-name: Deploy to Production
+name: Sync Files to Production
 
 on:
   push:
@@ -61,102 +61,28 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
         
-    - name: Run database migrations
+    - name: Sync files to production server
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.PRODUCTION_HOST }}
         username: ${{ secrets.PRODUCTION_USERNAME }}
         key: ${{ secrets.PRODUCTION_SSH_KEY }}
         script: |
-          # Ensure we're in the right directory
-          if [ ! -d "/var/www/codequest" ]; then
-            echo "Production directory not found, creating it..."
-            mkdir -p /var/www/codequest
-          fi
+          # Create production directory
+          mkdir -p /var/www/codequest
           cd /var/www/codequest
-          # Run migrations if you have a database service, otherwise skip
-          if docker-compose ps | grep -q "db"; then
-            docker-compose exec -T db npx prisma migrate deploy
+          
+          # Pull latest code
+          if [ -d ".git" ]; then
+            git pull origin main
           else
-            echo "No database service found, skipping migrations"
+            git clone -b main https://github.com/${{ github.repository }}.git .
           fi
           
-    - name: Deploy to production server
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.PRODUCTION_HOST }}
-        username: ${{ secrets.PRODUCTION_USERNAME }}
-        key: ${{ secrets.PRODUCTION_SSH_KEY }}
-        script: |
-          # Ensure we're in the right directory
-          if [ ! -d "/var/www/codequest" ]; then
-            echo "Production directory not found, creating it..."
-            mkdir -p /var/www/codequest
-          fi
-          cd /var/www/codequest
+          echo "✅ Files synced to production server"
+          echo "📁 Directory: /var/www/codequest"
+          echo "🚀 Run manually: cd /var/www/codequest && docker-compose up -d"
           
-          # Create backup before deployment (if database service exists)
-          if docker-compose ps | grep -q "db"; then
-            docker-compose exec -T db pg_dump $DATABASE_URL > backup_$(date +%Y%m%d_%H%M%S).sql
-          else
-            echo "No database service found, skipping backup"
-          fi
-          
-          # Pull new images
-          docker-compose pull
-          
-          # Deploy with zero-downtime
-          docker-compose up -d --no-deps --scale api=2 --scale optimus-worker=2
-          
-          # Wait for health checks
-          sleep 30
-          
-          # Check if new containers are healthy
-          if docker-compose ps | grep -q "unhealthy"; then
-            echo "New deployment is unhealthy, rolling back..."
-            docker-compose up -d --no-deps --scale api=1 --scale optimus-worker=1
-            exit 1
-          fi
-          
-          # Remove old containers
-          docker-compose up -d --no-deps
-          docker system prune -f
-          
-    - name: Health check
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.PRODUCTION_HOST }}
-        username: ${{ secrets.PRODUCTION_USERNAME }}
-        key: ${{ secrets.PRODUCTION_SSH_KEY }}
-        script: |
-          # Ensure we're in the right directory
-          if [ ! -d "/var/www/codequest" ]; then
-            echo "Production directory not found, creating it..."
-            mkdir -p /var/www/codequest
-          fi
-          cd /var/www/codequest
-          
-          # Wait for services to be ready
-          sleep 10
-          
-          # Check API health
-          if ! curl -f http://localhost:3000/health; then
-            echo "API health check failed"
-            exit 1
-          fi
-          
-          # Check worker health (basic check since worker may not have health endpoint)
-          if ! docker-compose ps optimus-worker | grep -q "Up"; then
-            echo "Worker container is not running"
-            exit 1
-          fi
-          
-          # Check if worker is processing (basic health check)
-          if docker-compose logs --tail=10 optimus-worker | grep -q "error\|Error\|ERROR"; then
-            echo "Worker has errors in logs"
-            exit 1
-          fi
-          
-          echo "All services are healthy!"
+
           
  

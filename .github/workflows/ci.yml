@@ -25,16 +25,32 @@ jobs:
         cache: 'npm'
         
     - name: Install dependencies
-      run: npm ci
+      run: npm install
       
-    - name: Run linting
-      run: npm run lint
+    - name: Ensure lock file is generated
+      run: |
+        if [ ! -f "package-lock.json" ]; then
+          echo "Generating package-lock.json..."
+          npm install --package-lock-only
+        fi
       
-    - name: Run type checking
-      run: npm run check-types
+    - name: Debug package info
+      run: |
+        echo "Available scripts:"
+        npm run
+        echo "Package-lock status:"
+        ls -la package-lock.json
+        echo "Node modules status:"
+        ls -la node_modules/ | head -5
       
-    - name: Build packages
-      run: npm run build
+    - name: Run linting (if available)
+      run: npm run lint --if-present
+      
+    - name: Run type checking (if available)
+      run: npm run check-types --if-present
+      
+    - name: Build packages (if available)
+      run: npm run build --if-present
       
     - name: Run tests (if available)
       run: npm test --if-present

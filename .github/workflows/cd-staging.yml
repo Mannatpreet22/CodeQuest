@@ -1,4 +1,4 @@
-name: Deploy to Staging (Same Server)
+name: Sync Files to Staging
 
 on:
   push:
@@ -50,27 +50,24 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
         
-    - name: Deploy to staging server
+    - name: Sync files to staging server
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.PRODUCTION_HOST }}
         username: ${{ secrets.PRODUCTION_USERNAME }}
         key: ${{ secrets.PRODUCTION_SSH_KEY }}
         script: |
-          # Deploy to staging directory on same server
+          # Create staging directory
           mkdir -p /var/www/codequest-staging
           cd /var/www/codequest-staging
           
-          # Copy production docker-compose if staging doesn't exist
-          if [ ! -f "docker-compose.yml" ]; then
-            cp /var/www/codequest/docker-compose.yml .
-            cp /var/www/codequest/.env .
+          # Pull latest code
+          if [ -d ".git" ]; then
+            git pull origin develop
+          else
+            git clone -b develop https://github.com/${{ github.repository }}.git .
           fi
           
-          # Set staging port to avoid conflicts
-          export API_PORT=3001
-          
-          docker-compose pull
-          docker-compose down
-          docker-compose up -d
-          docker system prune -f 
+          echo "✅ Files synced to staging server"
+          echo "📁 Directory: /var/www/codequest-staging"
+          echo "🚀 Run manually: cd /var/www/codequest-staging && docker-compose up -d" 
