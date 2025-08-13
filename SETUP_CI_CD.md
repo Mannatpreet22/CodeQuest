@@ -26,8 +26,6 @@ Go to your GitHub repository → Settings → Secrets and variables → Actions,
 PRODUCTION_HOST=143.110.213.227
 PRODUCTION_USERNAME=root
 PRODUCTION_SSH_KEY=your-ssh-private-key
-
-SLACK_WEBHOOK_URL=your-slack-webhook-url (optional)
 ```
 
 **Note:** Both staging and production deploy to the same server (143.110.213.227) but in different directories.
@@ -97,7 +95,6 @@ chmod +x scripts/deploy.sh
 - **Health checks** on all services
 - **Automatic rollbacks** on failures
 - **Database backups** before each deployment
-- **Slack notifications** on success/failure
 
 ## Files Created
 

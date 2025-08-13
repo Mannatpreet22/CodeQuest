@@ -153,18 +153,4 @@ jobs:
           
           echo "All services are healthy!"
           
-    - name: Notify deployment success
-      if: success()
-      uses: 8398a7/action-slack@v3
-      with:
-        status: success
-        text: '🚀 CodeQuest production deployment successful!'
-        webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
-        
-    - name: Notify deployment failure
-      if: failure()
-      uses: 8398a7/action-slack@v3
-      with:
-        status: failure
-        text: '❌ CodeQuest production deployment failed!'
-        webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }} 
+ 
