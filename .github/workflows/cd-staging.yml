@@ -33,7 +33,7 @@ jobs:
       id: meta
       uses: docker/metadata-action@v5
       with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-api
+        images: ${{ env.REGISTRY }}/$(echo ${{ env.IMAGE_NAME }} | tr '[:upper:]' '[:lower:]')-api
         tags: |
           type=ref,event=branch
           type=sha,prefix={{branch}}-
@@ -43,7 +43,7 @@ jobs:
       id: meta-worker
       uses: docker/metadata-action@v5
       with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-worker
+        images: ${{ env.REGISTRY }}/$(echo ${{ env.IMAGE_NAME }} | tr '[:upper:]' '[:lower:]')-worker
         tags: |
           type=ref,event=branch
           type=sha,prefix={{branch}}-
@@ -101,7 +101,7 @@ jobs:
             cat > docker-compose.yml << 'EOF'
           services:
             api:
-              image: ghcr.io/${{ github.repository }}-api:staging
+              image: ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')-api:staging
               ports:
                 - "3001:3000"
               environment:
@@ -130,7 +130,7 @@ jobs:
                 - ./logs/api:/app/logs
 
             optimus-worker:
-              image: ghcr.io/${{ github.repository }}-worker:staging
+              image: ghcr.io/$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')-worker:staging
               environment:
                 - NODE_ENV=staging
                 - DATABASE_URL=${DATABASE_URL}
