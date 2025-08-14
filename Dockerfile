@@ -54,11 +54,24 @@ COPY . .
 # Ensure workspace is properly linked
 RUN npm install --workspaces
 
+# Configure workspace settings
+RUN npm config set workspaces-update false && \
+    npm config set workspaces-concurrency 1
+
+# Ensure TypeScript is available globally
+RUN npm install -g typescript@5.8.2
+
 # Generate Prisma client
 RUN npx prisma generate --schema=./packages/db/prisma/schema.prisma
 
 # Verify workspace setup and build all packages and services
-RUN npm run build
+RUN npm list && \
+    npm config list && \
+    npm run build --workspace=packages/db && \
+    npm run build --workspace=packages/redis && \
+    npm run build --workspace=packages/commons && \
+    npm run build --workspace=apps/api && \
+    npm run build --workspace=apps/optimus-worker
 
 # Stage 4: Production API Runner
 FROM base AS api-runner
