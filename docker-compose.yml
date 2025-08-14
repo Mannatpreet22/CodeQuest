@@ -1,6 +1,6 @@
 services:
   api:
-    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-your-username/codequest}:${TAG:-latest}
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-your-username/codequest}-api:${TAG:-latest}
     ports:
       - "${API_PORT:-3000}:3000"
     environment:
@@ -29,7 +29,7 @@ services:
       - ./logs/api:/app/logs
 
   optimus-worker:
-    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-your-username/codequest}:${TAG:-latest}
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-your-username/codequest}-worker:${TAG:-latest}
     environment:
       - NODE_ENV=production
       - DATABASE_URL=${DATABASE_URL}

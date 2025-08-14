@@ -32,7 +32,7 @@ COPY packages/commons/package*.json ./packages/commons/
 COPY packages/typescript-config/package*.json ./packages/typescript-config/
 
 # Install all dependencies (including dev dependencies for building)
-RUN npm install
+RUN npm ci --only=production=false
 
 # Stage 3: Builder with all source code
 FROM base AS builder
@@ -47,6 +47,7 @@ COPY . .
 # Generate Prisma client
 RUN npx prisma generate --schema=./packages/db/prisma/schema.prisma
 
+# Build all packages and services
 RUN npm run build -w @repo/db && \
     npm run build -w @repo/redis && \
     npm run build -w @repo/commons && \

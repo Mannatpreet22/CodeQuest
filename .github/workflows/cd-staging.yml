@@ -1,55 +1,95 @@
-name: Sync Files to Staging
+name: Deploy to Staging (Same Server)
 
 on:
   push:
     branches: [ develop ]
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
-  sync-files:
+  build-and-push:
     runs-on: ubuntu-latest
-    
+    permissions:
+      contents: read
+      packages: write
+      
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Copy docker-compose.yml to staging
-      uses: appleboy/scp-action@v0.1.7
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
       with:
-        host: ${{ secrets.PRODUCTION_HOST }}
-        username: ${{ secrets.PRODUCTION_USERNAME }}
-        key: ${{ secrets.PRODUCTION_SSH_KEY }}
-        source: "docker-compose.yml"
-        target: "/var/www/codequest-staging/"
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
         
-    - name: Sync files to staging server
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=sha,prefix={{branch}}-
+          type=raw,value=staging,enable={{is_default_branch}}
+          
+    - name: Build and push API image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        target: api-runner
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-api:${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        
+    - name: Build and push Worker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        target: worker-runner
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-worker:${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        
+    - name: Deploy to staging server
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.PRODUCTION_HOST }}
         username: ${{ secrets.PRODUCTION_USERNAME }}
         key: ${{ secrets.PRODUCTION_SSH_KEY }}
         script: |
-          # Create staging directory
+          # Deploy to staging directory on same server
           mkdir -p /var/www/codequest-staging
           cd /var/www/codequest-staging
           
-          # Remove old files
-          rm -rf *
+          # Copy production docker-compose if staging doesn't exist
+          if [ ! -f "docker-compose.yml" ]; then
+            cp /var/www/codequest/docker-compose.yml .
+            cp /var/www/codequest/.env .
+          fi
           
-          # Create .env file for staging
-          cat > .env << 'EOF'
-          # Staging Environment
-          NODE_ENV=staging
-          API_PORT=3001
-          DATABASE_URL=${DATABASE_URL}
-          REDIS_PASSWORD=${REDIS_PASSWORD}
-          CLERK_WEBHOOK_SECRET=${CLERK_WEBHOOK_SECRET}
-          CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
-          CLERK_PUBLISHABLE_KEY=${CLERK_PUBLISHABLE_KEY}
-          API_URL=https://api.codequest.com
-          JUDGE0_RAPIDAPI_URL=${JUDGE0_RAPIDAPI_URL}
-          JUDGE0_RAPIDAPI_KEY=${JUDGE0_RAPIDAPI_KEY}
-          JUDGE0_SELF_HOSTED_URL=http://host.docker.internal:2358
-          JUDGE0_SELF_HOSTED_KEY=${JUDGE0_SELF_HOSTED_KEY}
-          EOF
+          # Set staging port to avoid conflicts
+          export API_PORT=3001
           
-          echo "Files synced to staging. Run 'docker-compose up -d' manually to deploy." 
+          # Update docker-compose to use staging images
+          sed -i 's|${REGISTRY:-ghcr.io}/${IMAGE_NAME:-your-username/codequest}:${TAG:-latest}|ghcr.io/${{ github.repository }}-api:staging|g' docker-compose.yml
+          sed -i 's|image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-your-username/codequest}:${TAG:-latest}|image: ghcr.io/${{ github.repository }}-worker:staging|g' docker-compose.yml
+          
+          docker-compose pull
+          docker-compose down
+          docker-compose up -d
+          docker system prune -f 

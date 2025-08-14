@@ -2,20 +2,20 @@
 
 ## What I've Set Up
 
-I've configured a simple file sync CI/CD pipeline for your CodeQuest **backend** that will automatically:
+I've configured a complete CI/CD pipeline for your CodeQuest **backend** that will automatically:
 
 **✅ Compatibility Notes:**
 - **Backend-only deployment** - API and Worker services only
-- **Simple file sync** - No Docker image building, just syncs updated files
-- **Manual deployment** - You run `docker-compose up -d` manually on server
+- **Automated Docker builds** - Builds and pushes images to GitHub Container Registry
+- **Zero-downtime deployment** - Automatic rollback on failures
 - Works with your existing `docker-compose.yml` (no database service required)
 - Flexible directory handling for staging/production
 
 1. **Test your code** on every push/PR
-2. **Sync updated files** to your server automatically
-3. **Sync to staging** when you push to `develop` branch
-4. **Sync to production** when you push to `main` branch
-5. **Manual deployment** - You control when to deploy with `docker-compose up -d`
+2. **Build Docker images** and push them to GitHub Container Registry
+3. **Deploy to staging** when you push to `develop` branch
+4. **Deploy to production** when you push to `main` branch
+5. **Handle rollbacks** automatically if deployments fail
 
 ## What You Need to Do
 
@@ -24,12 +24,12 @@ I've configured a simple file sync CI/CD pipeline for your CodeQuest **backend**
 Go to your GitHub repository → Settings → Secrets and variables → Actions, and add these secrets:
 
 ```
-PRODUCTION_HOST=143.110.213.227
+PRODUCTION_HOST=
 PRODUCTION_USERNAME=root
 PRODUCTION_SSH_KEY=your-ssh-private-key
 ```
 
-**Note:** Both staging and production deploy to the same server (143.110.213.227) but in different directories.
+**Note:** Both staging and production deploy to the same server (mossland.computer) but in different directories.
 
 ### 2. Update Environment Variables
 
@@ -86,18 +86,19 @@ cd /var/www/codequest
 - **Staging**: Port 3001 (`/var/www/codequest-staging`)
 - **Production**: Port 3000 (`/var/www/codequest`)
 
-### What Happens on Each Sync
+### What Happens on Each Deployment
 1. ✅ Code is tested and built
-2. ✅ Updated files are synced to your server
-3. ✅ `docker-compose.yml` is copied to the right directory
-4. ✅ `.env` file is created with environment variables
-5. ✅ You manually run `docker-compose up -d` when ready
-6. ✅ Full control over deployment timing
+2. ✅ Docker images are created and pushed to registry
+3. ✅ Database migrations run automatically
+4. ✅ New containers start alongside old ones
+5. ✅ Health checks ensure new version works
+6. ✅ Old containers are removed (zero-downtime)
+7. ✅ Automatic rollback if anything fails
 
 ### Monitoring
-- **Manual control** - You decide when to deploy
-- **Easy rollback** - Just run `docker-compose down && docker-compose up -d`
-- **File sync** - Always have the latest code on server
+- **Health checks** on all services
+- **Automatic rollbacks** on failures
+- **Database backups** before each deployment
 
 ## Files Created
 
@@ -108,34 +109,31 @@ cd /var/www/codequest
 ## Benefits
 
 ✅ **Backend-only deployment** - API and Worker services only  
-✅ **Simple file sync** - No complex Docker image building  
-✅ **Manual control** - You decide when to deploy  
-✅ **Easy rollback** - Just restart containers  
-✅ **Always up-to-date** - Latest code always on server  
-✅ **No registry needed** - Build Docker images on server  
-✅ **Easy debugging** - Full control over deployment process  
+✅ **No more manual server setup** - Everything is automated  
+✅ **Zero-downtime deployments** - Users never see downtime  
+✅ **Automatic rollbacks** - Failed deployments are reverted  
+✅ **Database safety** - Backups before every deployment  
+✅ **Health monitoring** - Services are constantly checked  
+✅ **Easy scaling** - Just push to the right branch  
 
 ## Next Steps
 
 1. **Push this code** to your GitHub repository
 2. **Configure the secrets** in GitHub (only need PRODUCTION_HOST, PRODUCTION_USERNAME, PRODUCTION_SSH_KEY)
-3. **Set up your server** (143.110.213.227) with the environment variables
+3. **Set up your server**  with the environment variables
 4. **Test the pipeline** by pushing to `develop` branch
-5. **Deploy manually** by running `docker-compose up -d` on server
 
 **Server Setup:**
 ```bash
-ssh root@143.110.213.227
+ssh root@mossland.computer
 mkdir -p /var/www/codequest
 cd /var/www/codequest
 # Create .env file with your configuration
 # Copy docker-compose.yml to the server
 ```
 
-Your CodeQuest **backend** (API + Worker) will now automatically sync files to:
+Your CodeQuest **backend** (API + Worker) will now automatically deploy to:
 - **Staging**: Port 3001 (`/var/www/codequest-staging`)
 - **Production**: Port 3000 (`/var/www/codequest`)
 
-Both on the same server (143.110.213.227)! 
-
-**Deploy manually** by running `docker-compose up -d` when ready! 🚀 
+Both on the same server (mossland.computer)! 🚀 

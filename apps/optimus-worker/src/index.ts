@@ -2,6 +2,8 @@ import dotenv from 'dotenv'
 dotenv.config()
 
 import { createClient } from '@redis/client'
+import express from 'express'
+import http from 'http'
 
 import { parsedQuestionSubmission } from '@repo/commons/types'
 import prisma from '@repo/db/client'
@@ -41,6 +43,8 @@ class OptimusWorker {
     private judge0Service: Judge0ConnectionManager
     private isRunning = false
     private isConnected = false
+    private app: express.Express
+    private server!: http.Server
 
     constructor() {
         // Build Redis URL with password if available
@@ -61,7 +65,35 @@ class OptimusWorker {
         })
         this.judge0Service = new Judge0ConnectionManager()
         
+        // Setup Express app for health checks
+        this.app = express()
+        this.setupHealthEndpoint()
+        
         this.setupEventListeners()
+    }
+
+    private setupHealthEndpoint() {
+        // Health check endpoint
+        this.app.get('/health', (req, res) => {
+            const health = {
+                status: 'healthy',
+                timestamp: new Date().toISOString(),
+                redis: this.isConnected ? 'connected' : 'disconnected',
+                worker: this.isRunning ? 'running' : 'stopped'
+            }
+            
+            if (this.isConnected && this.isRunning) {
+                res.status(200).json(health)
+            } else {
+                res.status(503).json({ ...health, status: 'unhealthy' })
+            }
+        })
+
+        // Start HTTP server for health checks
+        const port = process.env.PORT || 3001
+        this.server = this.app.listen(port, () => {
+            console.log(`🏥 Health check server running on port ${port}`)
+        })
     }
 
     private setupEventListeners() {
@@ -350,8 +382,8 @@ input_data = sys.stdin.read().strip()
 # Parse input based on parameter types
 ${params.map((param, i) => {
     const paramName = param.trim();
-    // Check if parameter name suggests it's an array
-    if (paramName.includes('arr') || paramName.includes('list') || paramName.includes('array')) {
+    // Check if parameter name suggests it's an array OR if it's the first parameter (likely nums)
+    if (paramName.includes('arr') || paramName.includes('list') || paramName.includes('array') || paramName.includes('nums') || i === 0) {
         return `${paramName} = json.loads(input_data)`;
     } else {
         return `${paramName} = int(input_data.split()[${i}])`;
@@ -360,7 +392,12 @@ ${params.map((param, i) => {
 
 # Call the function with the input
 result = ${functionName}(${params.map(p => p.trim()).join(', ')})
-print(result)`;
+# Format output as expected by Judge0 (each element on a new line for arrays)
+if isinstance(result, list):
+    for item in result:
+        print(item)
+else:
+    print(result)`;
         }
 
         const functionName = functionMatch[1];
@@ -392,8 +429,8 @@ input_data = sys.stdin.read().strip()
 # Parse input based on parameter types
 ${params.map((param, i) => {
     const paramName = param.trim();
-    // Check if parameter name suggests it's an array
-    if (paramName.includes('arr') || paramName.includes('list') || paramName.includes('array')) {
+    // Check if parameter name suggests it's an array OR if it's the first parameter (likely nums)
+    if (paramName.includes('arr') || paramName.includes('list') || paramName.includes('array') || paramName.includes('nums') || i === 0) {
         return `${paramName} = json.loads(input_data)`;
     } else {
         return `${paramName} = int(input_data.split()[${i}])`;
@@ -402,7 +439,12 @@ ${params.map((param, i) => {
 
 # Call the function with the input
 result = ${functionName}(${params.map(p => p.trim()).join(', ')})
-print(result)`;
+# Format output as expected by Judge0 (each element on a new line for arrays)
+if isinstance(result, list):
+    for item in result:
+        print(item)
+else:
+    print(result)`;
     }
 
     private generateCppDriver(code: string): string {
