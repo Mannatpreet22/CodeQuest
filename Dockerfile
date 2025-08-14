@@ -38,7 +38,7 @@ RUN npm cache clean --force && \
     npm config set workspaces-update false && \
     npm config set loglevel verbose && \
     npm install --legacy-peer-deps && \
-    npm ci --workspaces --only=production=false
+    npm install --workspaces --include=dev
 
 # Stage 3: Builder with all source code
 FROM base AS builder
@@ -46,19 +46,19 @@ FROM base AS builder
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/package*.json ./
+COPY --from=deps /app/turbo.json ./
 
 # Copy all source code
 COPY . .
 
+# Ensure workspace is properly linked
+RUN npm install --workspaces
+
 # Generate Prisma client
 RUN npx prisma generate --schema=./packages/db/prisma/schema.prisma
 
-# Build all packages and services
-RUN npm run build -w @repo/db && \
-    npm run build -w @repo/redis && \
-    npm run build -w @repo/commons && \
-    npm run build -w api && \
-    npm run build -w optimus-worker
+# Verify workspace setup and build all packages and services
+RUN npm run build
 
 # Stage 4: Production API Runner
 FROM base AS api-runner
