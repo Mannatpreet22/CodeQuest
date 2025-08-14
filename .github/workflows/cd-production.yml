@@ -43,7 +43,18 @@ jobs:
       id: meta
       uses: docker/metadata-action@v5
       with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-api
+        tags: |
+          type=ref,event=branch
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+          type=raw,value=production
+          
+    - name: Extract metadata for worker
+      id: meta-worker
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-worker
         tags: |
           type=ref,event=branch
           type=sha,prefix={{branch}}-
@@ -58,7 +69,7 @@ jobs:
         target: api-runner
         platforms: linux/amd64,linux/arm64
         push: true
-        tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-api:${{ steps.meta.outputs.tags }}
+        tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
@@ -71,8 +82,8 @@ jobs:
         target: worker-runner
         platforms: linux/amd64,linux/arm64
         push: true
-        tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-worker:${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
+        tags: ${{ steps.meta-worker.outputs.tags }}
+        labels: ${{ steps.meta-worker.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
         
@@ -118,8 +129,8 @@ jobs:
           fi
           
           # Update docker-compose to use production images
-          sed -i 's|image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-your-username/codequest}:${TAG:-latest}|image: ghcr.io/${{ github.repository }}-api:production|g' docker-compose.yml
-          sed -i 's|image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-your-username/codequest}:${TAG:-latest}|image: ghcr.io/${{ github.repository }}-worker:production|g' docker-compose.yml
+          sed -i 's|image:.*api.*|image: ghcr.io/${{ github.repository }}-api:production|g' docker-compose.yml
+          sed -i 's|image:.*worker.*|image: ghcr.io/${{ github.repository }}-worker:production|g' docker-compose.yml
           
           # Pull new images
           docker-compose pull
