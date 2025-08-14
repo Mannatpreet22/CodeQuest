@@ -37,3 +37,9 @@ Dockerfile
 # IDE
 .idea
 .vscode
+
+# Keep package files for workspace builds
+!package*.json
+!turbo.json
+!apps/*/package*.json
+!packages/*/package*.json

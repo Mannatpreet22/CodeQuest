@@ -2,7 +2,7 @@
 # Multi-stage build for optimized production images
 
 # Stage 1: Base image with security updates
-FROM node:18-alpine AS base
+FROM node:20-alpine AS base
 
 # Install system dependencies and security updates
 RUN apk update && apk upgrade && \
@@ -32,7 +32,13 @@ COPY packages/commons/package*.json ./packages/commons/
 COPY packages/typescript-config/package*.json ./packages/typescript-config/
 
 # Install all dependencies (including dev dependencies for building)
-RUN npm ci --only=production=false
+# First install root dependencies, then workspace dependencies
+RUN npm cache clean --force && \
+    npm install -g npm@10.8.2 && \
+    npm config set workspaces-update false && \
+    npm config set loglevel verbose && \
+    npm install --legacy-peer-deps && \
+    npm ci --workspaces --only=production=false
 
 # Stage 3: Builder with all source code
 FROM base AS builder
