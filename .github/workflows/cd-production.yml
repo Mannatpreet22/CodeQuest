@@ -43,7 +43,7 @@ jobs:
       id: meta
       uses: docker/metadata-action@v5
       with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-api
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME | lower }}-api
         tags: |
           type=ref,event=branch
           type=sha,prefix={{branch}}-
@@ -54,7 +54,7 @@ jobs:
       id: meta-worker
       uses: docker/metadata-action@v5
       with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-worker
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME | lower }}-worker
         tags: |
           type=ref,event=branch
           type=sha,prefix={{branch}}-
@@ -67,7 +67,7 @@ jobs:
         context: .
         file: ./Dockerfile
         target: api-runner
-        platforms: linux/amd64,linux/arm64
+        platforms: linux/amd64
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
@@ -80,7 +80,7 @@ jobs:
         context: .
         file: ./Dockerfile
         target: worker-runner
-        platforms: linux/amd64,linux/arm64
+        platforms: linux/amd64
         push: true
         tags: ${{ steps.meta-worker.outputs.tags }}
         labels: ${{ steps.meta-worker.outputs.labels }}
@@ -134,7 +134,7 @@ jobs:
             cat > docker-compose.yml << 'EOF'
           services:
             api:
-              image: ghcr.io/${{ env.IMAGE_NAME }}-api:production
+              image: ghcr.io/${{ env.IMAGE_NAME | lower }}-api:production
               ports:
                 - "3000:3000"
               environment:
@@ -163,7 +163,7 @@ jobs:
                 - ./logs/api:/app/logs
 
             optimus-worker:
-              image: ghcr.io/${{ env.IMAGE_NAME }}-worker:production
+              image: ghcr.io/${{ env.IMAGE_NAME | lower }}-worker:production
               environment:
                 - NODE_ENV=production
                 - DATABASE_URL=${DATABASE_URL}
