@@ -206,17 +206,6 @@ string checkEvenOrOdd(int num) {
     // Return "Even" if the number is even, "Odd" if it's odd
     return "";
 }`
-      },
-      {
-        questionId: evenOddQuestion.id,
-        programmingLanguageId: 'java',
-        driverCode: `public class Solution {
-    public String checkEvenOrOdd(int num) {
-        // Your code here
-        // Return "Even" if the number is even, "Odd" if it's odd
-        return "";
-    }
-}`
       }
     ]
   })
@@ -392,16 +381,6 @@ Follow-up: Can you solve this without using the + operator?`
     // Your code here
     return 0;
 }`
-      },
-      {
-        questionId: sumQuestion.id,
-        programmingLanguageId: 'java',
-        driverCode: `public class Solution {
-    public int addTwoNumbers(int a, int b) {
-        // Your code here
-        return 0;
-    }
-}`
       }
     ]
   })
@@ -560,7 +539,7 @@ Follow-up: Can you find both the maximum and minimum in a single pass through th
         questionId: maxQuestion.id,
         programmingLanguageId: 'python',
         driverCode: `def find_maximum(arr):
-    // Your code here
+    # Your code here
     return 0`
       },
       {
@@ -573,16 +552,6 @@ int findMaximum(vector<int>& arr) {
     // Your code here
     // Return the maximum number in the array
     return 0;
-}`
-      },
-      {
-        questionId: maxQuestion.id,
-        programmingLanguageId: 'java',
-        driverCode: `public class Solution {
-    public int findMaximum(int[] arr) {
-        // Your code here
-        return 0;
-    }
 }`
       }
     ]
@@ -742,7 +711,7 @@ Follow-up: Can you reverse the string in-place without using extra space?`
         questionId: reverseQuestion.id,
         programmingLanguageId: 'python',
         driverCode: `def reverse_string(s):
-    // Your code here
+    # Your code here
     return ""`
       },
       {
@@ -754,16 +723,6 @@ using namespace std;
 string reverseString(string str) {
     // Your code here
     return "";
-}`
-      },
-      {
-        questionId: reverseQuestion.id,
-        programmingLanguageId: 'java',
-        driverCode: `public class Solution {
-    public String reverseString(String str) {
-        // Your code here
-        return "";
-    }
 }`
       }
     ]
@@ -951,7 +910,7 @@ function twoSum(nums, target) {
         driverCode: `from typing import List
 
 def twoSum(nums: List[int], target: int) -> List[int]:
-    // Your code here
+    # Your code here
     return []`
       },
       {
@@ -967,16 +926,6 @@ public:
         return {};
     }
 };`
-      },
-      {
-        questionId: twoSumQuestion.id,
-        programmingLanguageId: 'java',
-        driverCode: `public class Solution {
-    public int[] twoSum(int[] nums, int target) {
-        // Your code here
-        return new int[2];
-    }
-}`
       }
     ]
   })
@@ -1145,7 +1094,7 @@ function isPalindrome(x) {
         questionId: palindromeQuestion.id,
         programmingLanguageId: 'python',
         driverCode: `def isPalindrome(x: int) -> bool:
-    // Your code here
+    # Your code here
     return False`
       },
       {
@@ -1158,16 +1107,6 @@ public:
         return false;
     }
 };`
-      },
-      {
-        questionId: palindromeQuestion.id,
-        programmingLanguageId: 'java',
-        driverCode: `public class Solution {
-    public boolean isPalindrome(int x) {
-        // Your code here
-        return false;
-    }
-}`
       }
     ]
   })
@@ -1321,17 +1260,6 @@ Follow-up: Can you solve this using recursion? What about iteration?`
     // Your code here
     // Return the factorial of n
     return 0;
-}`
-      },
-      {
-        questionId: factorialQuestion.id,
-        programmingLanguageId: 'java',
-        driverCode: `public class Solution {
-    public int factorial(int n) {
-        // Your code here
-        // Return the factorial of n
-        return 0;
-    }
 }`
       }
     ]
@@ -1515,17 +1443,6 @@ public:
         return false;
     }
 };`
-      },
-      {
-        questionId: parenthesesQuestion.id,
-        programmingLanguageId: 'java',
-        driverCode: `public class Solution {
-    public boolean isValid(String s) {
-        // Your code here
-        // Return true if the parentheses are valid, false otherwise
-        return false;
-    }
-}`
       }
     ]
   })
@@ -1703,17 +1620,6 @@ public:
         return 0;
     }
 };`
-      },
-      {
-        questionId: longestSubstringQuestion.id,
-        programmingLanguageId: 'java',
-        driverCode: `public class Solution {
-    public int lengthOfLongestSubstring(String s) {
-        // Your code here
-        // Return the length of the longest substring without repeating characters
-        return 0;
-    }
-}`
       }
     ]
   })

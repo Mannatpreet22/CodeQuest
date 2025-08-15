@@ -13,7 +13,6 @@ import { getProblemWithTestCases, getTemplateCode, runCode, submitCode } from "@
 import useLocalStorage from "@/hooks/hooks/useLocalStorage"
 import { StorageService } from "@/utils/storage"
 import { python } from "@codemirror/lang-python"
-import { java } from "@codemirror/lang-java"
 import { cpp } from "@codemirror/lang-cpp"
 import { useUser } from '@clerk/nextjs'
 
@@ -395,8 +394,6 @@ const Playground: React.FC<PlaygroundProps> = ({ problem, pid, setSuccess, setSo
 		switch (settings.language) {
 			case "python":
 				return python()
-			case "java":
-				return java()
 			case "cpp":
 				return cpp()
 			default:

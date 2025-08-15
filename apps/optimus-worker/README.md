@@ -5,7 +5,7 @@ A Redis-based worker service that processes code submissions using Judge0 for se
 ## Features
 
 - **Judge0 Integration**: Secure code execution using Judge0 API
-- **Multi-language Support**: JavaScript, Python, C++, Java, C
+- **Multi-language Support**: JavaScript, Python, C++
 - **Redis Message Queue**: Asynchronous processing of submissions
 - **Database Integration**: Stores submission results in PostgreSQL
 - **Real-time Results**: Publishes results back through Redis
@@ -17,7 +17,6 @@ A Redis-based worker service that processes code submissions using Judge0 for se
 | JavaScript | 63 | Node.js 12.14.0 |
 | Python | 71 | Python 3.8.1 |
 | C++ | 54 | GCC 9.2.0 |
-| Java | 62 | OpenJDK 13.0.1 |
 | C | 50 | GCC 9.2.0 |
 
 ## Environment Variables

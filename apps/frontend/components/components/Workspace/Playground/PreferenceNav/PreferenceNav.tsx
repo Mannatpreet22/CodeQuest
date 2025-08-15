@@ -48,7 +48,6 @@ const PreferenceNav: React.FC<PreferenceNavProps> = ({ setSettings, settings }) 
 	const languages = [
 		{ id: "javascript", name: "JavaScript" },
 		{ id: "python", name: "Python" },
-		{ id: "java", name: "Java" },
 		{ id: "cpp", name: "C++" },
 	];
 

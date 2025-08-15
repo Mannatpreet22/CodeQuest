@@ -75,8 +75,6 @@ export class Judge0ConnectionManager {
             case 'cpp':
             case 'c++':
                 return 54 // C++ (GCC 11.2.0) - Judge0 Extra CE
-            case 'java':
-                return 62 // Java (OpenJDK 17.0.6) - Judge0 Extra CE
             case 'c':
                 return 50 // C (GCC 11.2.0) - Judge0 Extra CE
             default:

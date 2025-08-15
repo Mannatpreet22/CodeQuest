@@ -11,7 +11,6 @@
   "dependencies": {
     "@clerk/nextjs": "^6.28.1",
     "@codemirror/lang-cpp": "^6.0.3",
-    "@codemirror/lang-java": "^6.0.2",
     "@codemirror/lang-javascript": "^6.2.4",
     "@codemirror/lang-python": "^6.2.1",
     "@uiw/codemirror-theme-vscode": "^4.24.2",
