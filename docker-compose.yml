@@ -1,8 +1,13 @@
+version: '3.8'
+
 services:
   api:
-    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-your-username/codequest}-api:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api-runner
     ports:
-      - "${API_PORT:-3000}:3000"
+      - "3000:3000"
     environment:
       - NODE_ENV=production
       - DATABASE_URL=${DATABASE_URL}
@@ -29,7 +34,10 @@ services:
       - ./logs/api:/app/logs
 
   optimus-worker:
-    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-your-username/codequest}-worker:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker-runner
     environment:
       - NODE_ENV=production
       - DATABASE_URL=${DATABASE_URL}
