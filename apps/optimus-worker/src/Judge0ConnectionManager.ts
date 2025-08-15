@@ -64,21 +64,37 @@ export class Judge0ConnectionManager {
     }
 
     public getLanguageId(lang: string): number {
-        // Language IDs for Judge0 Extra CE (Community Edition)
+        // Standard Judge0 language IDs
         switch (lang.toLowerCase()) {
             case 'javascript':
             case 'js':
-                return 63 // JavaScript (Node.js 18.15.0) - Judge0 Extra CE
+                return 63 // JavaScript (Node.js)
             case 'python':
             case 'py':
-                return 71 // Python (3.11.4) - Judge0 Extra CE
+                return 71 // Python
             case 'cpp':
             case 'c++':
-                return 54 // C++ (GCC 11.2.0) - Judge0 Extra CE
-            case 'c':
-                return 50 // C (GCC 11.2.0) - Judge0 Extra CE
+                return 54 // C++
             default:
                 throw new Error(`Unsupported language: ${lang}`)
+        }
+    }
+
+    /**
+     * Fetch available languages from self-hosted Judge0 instance
+     * This helps verify the correct language IDs for your specific setup
+     */
+    public async getAvailableLanguages(): Promise<any[]> {
+        try {
+            const response = await axios.get(`${this.selfHostedConfig.baseUrl}/languages`, {
+                headers: this.selfHostedConfig.apiKey ? {
+                    'Authorization': `Bearer ${this.selfHostedConfig.apiKey}`
+                } : {}
+            });
+            return response.data;
+        } catch (error) {
+            console.error('❌ Failed to fetch languages from self-hosted Judge0:', error);
+            return [];
         }
     }
 

@@ -14,10 +14,11 @@ A Redis-based worker service that processes code submissions using Judge0 for se
 
 | Language | Judge0 Language ID | Version |
 |----------|-------------------|---------|
-| JavaScript | 63 | Node.js 12.14.0 |
-| Python | 71 | Python 3.8.1 |
-| C++ | 54 | GCC 9.2.0 |
-| C | 50 | GCC 9.2.0 |
+| JavaScript | 63 | Node.js |
+| Python | 71 | Python |
+| C++ | 54 | GCC |
+
+**Note**: For self-hosted Judge0 instances, language IDs may vary. Use the `getAvailableLanguages()` method to verify the correct IDs for your setup.
 
 ## Environment Variables
 

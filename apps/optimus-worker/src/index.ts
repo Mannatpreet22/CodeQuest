@@ -100,6 +100,46 @@ class OptimusWorker {
             }
         })
 
+        // Languages endpoint to verify Judge0 language IDs
+        this.app.get('/languages', async (req, res) => {
+            try {
+                const languages = await this.judge0Service.getAvailableLanguages()
+                res.json({
+                    message: 'Available languages from Judge0',
+                    languages: languages,
+                    supportedLanguages: {
+                        javascript: 63,
+                        python: 71,
+                        cpp: 54,
+                        c: 50
+                    }
+                })
+            } catch (error) {
+                res.status(500).json({
+                    error: 'Failed to fetch languages from Judge0',
+                    message: error instanceof Error ? error.message : 'Unknown error'
+                })
+            }
+        })
+
+        // Test language ID mapping
+        this.app.get('/test-language/:lang', (req, res) => {
+            try {
+                const lang = req.params.lang
+                const languageId = this.judge0Service.getLanguageId(lang)
+                res.json({
+                    language: lang,
+                    languageId: languageId,
+                    message: `Language '${lang}' maps to Judge0 ID: ${languageId}`
+                })
+            } catch (error) {
+                res.status(400).json({
+                    error: 'Unsupported language',
+                    message: error instanceof Error ? error.message : 'Unknown error'
+                })
+            }
+        })
+
         // Start HTTP server for health checks
         const port = process.env.PORT || 3002
         this.server = this.app.listen(port, () => {
