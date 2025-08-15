@@ -47,6 +47,12 @@ class OptimusWorker {
     private server!: http.Server
 
     constructor() {
+        // Check if we're in development mode
+        const isDevelopment = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'dev'
+        if (isDevelopment) {
+            console.log('🔄 DEVELOPMENT MODE: Database submissions will be skipped')
+        }
+        
         // Build Redis URL with password if available
         const redisHost = process.env.REDIS_HOST || 'localhost'
         const redisPort = process.env.REDIS_PORT || '6379'
@@ -55,6 +61,11 @@ class OptimusWorker {
         let redisUrl = `redis://${redisHost}:${redisPort}`
         if (redisPassword) {
             redisUrl = `redis://:${redisPassword}@${redisHost}:${redisPort}`
+        }
+        
+        // In development mode, allow Redis without password
+        if (isDevelopment && !redisPassword) {
+            console.log('🔄 Development mode: Connecting to Redis without password')
         }
         
         this.redisClient = createClient({
@@ -90,7 +101,7 @@ class OptimusWorker {
         })
 
         // Start HTTP server for health checks
-        const port = process.env.PORT || 3001
+        const port = process.env.PORT || 3002
         this.server = this.app.listen(port, () => {
             console.log(`🏥 Health check server running on port ${port}`)
         })
@@ -199,8 +210,12 @@ class OptimusWorker {
             // Calculate runtime
             const runtime = Date.now() - startTime
             
-            // Save submission to database
-            await this.saveSubmission(submission, result, runtime)
+            // Save submission to database (skip in development mode)
+            if (process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'dev') {
+                await this.saveSubmission(submission, result, runtime)
+            } else {
+                console.log('🔄 Development mode: Skipping database submission save')
+            }
             
             // Send result back through Redis
             await this.sendResult(submission.submissionId, {
@@ -286,42 +301,41 @@ class OptimusWorker {
     }
 
     private modifyCodeForTestCases(code: string, lang: string, testCaseInputs: any[]): string {
-        console.log('🔍 modifyCodeForTestCases called with language:', lang);
-        console.log('🔍 Language lowercase:', lang.toLowerCase());
-        
         if (lang.toLowerCase() === 'javascript' || lang.toLowerCase() === 'js') {
-            console.log('🔍 Generating JavaScript driver');
             return this.generateJavaScriptDriver(code);
         } else if (lang.toLowerCase() === 'python' || lang.toLowerCase() === 'py') {
-            console.log('🔍 Generating Python driver');
             return this.generatePythonDriver(code);
         } else if (lang.toLowerCase() === 'cpp' || lang.toLowerCase() === 'c++') {
-            console.log('🔍 Generating C++ driver');
             return this.generateCppDriver(code);
         } else if (lang.toLowerCase() === 'java') {
-            console.log('🔍 Generating Java driver');
             return this.generateJavaDriver(code);
         }
         
-        console.log('🔍 No driver generated, returning original code');
         return code;
     }
 
     private generateJavaScriptDriver(code: string): string {
-        // Extract function definition
-        const functionMatch = code.match(/function\s+(\w+)\s*\(([^)]*)\)\s*\{[\s\S]*?\}/);
+        // Improved function extraction for JavaScript
+        // Handle both function declarations and arrow functions
+        let functionMatch = code.match(/function\s+(\w+)\s*\(([^)]*)\)\s*\{([\s\S]*)\}/);
         
         if (!functionMatch) {
-            console.log('⚠️ Could not extract JavaScript function, using original code');
+            // Try arrow function pattern
+            functionMatch = code.match(/(?:const|let|var)\s+(\w+)\s*=\s*\(([^)]*)\)\s*=>\s*\{([\s\S]*)\}/);
+        }
+        
+        if (!functionMatch) {
+            // Try function expression pattern
+            functionMatch = code.match(/(\w+)\s*:\s*function\s*\(([^)]*)\)\s*\{([\s\S]*)\}/);
+        }
+        
+        if (!functionMatch) {
             return code;
         }
 
         const functionName = functionMatch[1];
         const params = functionMatch[2] ? functionMatch[2].split(',').map(p => p.trim()) : [];
-        const functionBody = functionMatch[0];
-        
-        console.log('🔍 Extracted JavaScript function:', functionName);
-        console.log('🔍 Parameters:', params);
+        const functionBody = functionMatch[3];
 
         return `
 const readline = require('readline');
@@ -330,145 +344,281 @@ const rl = readline.createInterface({
     output: process.stdout
 });
 
+function ${functionName}(${params.join(', ')}) {
 ${functionBody}
+}
 
 rl.on('line', (input) => {
-    const values = input.split(' ').map(Number);
-    const result = ${functionName}(${params.map((_, i) => `values[${i}]`).join(', ')});
-    console.log(result);
-    rl.close();
+    try {
+        const parts = input.trim().split(' ');
+        ${this.generateJavaScriptInputParsing(params)}
+        
+        const result = ${functionName}(${this.generateJavaScriptFunctionCall(params)});
+        
+        // Format output based on result type
+        if (Array.isArray(result)) {
+            // For arrays like [0, 1], print each element on a new line
+            result.forEach(item => console.log(item));
+        } else {
+            console.log(result);
+        }
+    } catch (error) {
+        console.error('Error:', error.message);
+    } finally {
+        rl.close();
+    }
 });`;
     }
 
+    private generateJavaScriptInputParsing(params: string[]): string {
+        if (params.length === 1) {
+            const param = params[0];
+            if (param && (param.includes('str') || param.includes('s'))) {
+                return `const ${param} = parts[0];`;
+            } else if (param) {
+                return `const ${param} = Number(parts[0]);`;
+            }
+        } else if (params.length === 2) {
+            const param1 = params[0];
+            const param2 = params[1];
+            
+            if (param1 && (param1.includes('arr') || param1.includes('nums'))) {
+                return `const ${param1} = parts.slice(0, -1).map(Number);
+const ${param2} = Number(parts[parts.length - 1]);`;
+            } else if (param1 && (param1.includes('str') || param1.includes('s'))) {
+                return `const ${param1} = parts[0];
+const ${param2} = parts[1];`;
+            } else if (param1 && param2) {
+                return `const ${param1} = Number(parts[0]);
+const ${param2} = Number(parts[1]);`;
+            }
+        }
+        return params.map((param, i) => {
+            if (param && (param.includes('str') || param.includes('s'))) {
+                return `const ${param} = parts[${i}];`;
+            } else if (param) {
+                return `const ${param} = Number(parts[${i}]);`;
+            }
+            return '';
+        }).filter(Boolean).join('\n        ');
+    }
+
+    private generateJavaScriptFunctionCall(params: string[]): string {
+        return params.join(', ');
+    }
+
     private generatePythonDriver(code: string): string {
-        // Extract function definition with more flexible regex
-        const functionMatch = code.match(/def\s+(\w+)\s*\(([^)]*)\)\s*:\s*\n([\s\S]*?)(?=\n\s*(?:#|print|def\s+\w+\s*\(|$))/);
+        // Improved Python function extraction - handle type hints
+        let functionMatch = code.match(/def\s+(\w+)\s*\(([^)]*)\)\s*->\s*[^:]*:\s*\n([\s\S]*)/);
         
         if (!functionMatch) {
-            // Try a simpler regex if the first one fails
-            const simpleMatch = code.match(/def\s+(\w+)\s*\(([^)]*)\)\s*:\s*\n([\s\S]*)/);
-            
-            if (!simpleMatch) {
-                console.log('⚠️ Could not extract Python function, using original code');
-                return code;
-            }
-            
-            const functionName = simpleMatch[1];
-            const params = simpleMatch[2] ? simpleMatch[2].split(',').map(p => p.trim()) : [];
-            let functionBody = simpleMatch[3] || '';
-            
-            // Fix indentation if needed
-            const lines = functionBody.split('\n');
-            const fixedLines = lines.map(line => {
-                if (line.trim() && !line.startsWith(' ')) {
-                    return '    ' + line; // Add proper indentation
-                }
-                return line;
-            });
-            functionBody = fixedLines.join('\n');
-            
-            console.log('🔍 Extracted Python function (simple):', functionName);
-            console.log('🔍 Parameters:', params);
-            console.log('🔍 Function body:', functionBody);
-
-            return `def ${functionName}(${params.join(', ')}):
-${functionBody}
-
-# Read input from stdin
-import sys
-import json
-input_data = sys.stdin.read().strip()
-
-# Parse input based on parameter types
-${params.map((param, i) => {
-    const paramName = param.trim();
-    // Check if parameter name suggests it's an array OR if it's the first parameter (likely nums)
-    if (paramName.includes('arr') || paramName.includes('list') || paramName.includes('array') || paramName.includes('nums') || i === 0) {
-        return `${paramName} = json.loads(input_data)`;
-    } else {
-        return `${paramName} = int(input_data.split()[${i}])`;
-    }
-}).join('\n')}
-
-# Call the function with the input
-result = ${functionName}(${params.map(p => p.trim()).join(', ')})
-# Format output as expected by Judge0 (each element on a new line for arrays)
-if isinstance(result, list):
-    for item in result:
-        print(item)
-else:
-    print(result)`;
+            // Try without return type hint
+            functionMatch = code.match(/def\s+(\w+)\s*\(([^)]*)\)\s*:\s*\n([\s\S]*)/);
         }
-
-        const functionName = functionMatch[1];
-        const params = functionMatch[2] ? functionMatch[2].split(',').map(p => p.trim()) : [];
-        let functionBody = functionMatch[3] || '';
         
-        // Fix indentation if needed
-        const lines = functionBody.split('\n');
-        const fixedLines = lines.map(line => {
-            if (line.trim() && !line.startsWith(' ')) {
-                return '    ' + line; // Add proper indentation
+        if (!functionMatch) {
+            // Try alternative pattern for single function
+            functionMatch = code.match(/def\s+(\w+)\s*\(([^)]*)\)\s*:\s*([\s\S]*)/);
+        }
+        
+        if (functionMatch && functionMatch[1] && functionMatch[2] && functionMatch[3]) {
+            const functionName = functionMatch[1];
+            const params = functionMatch[2].split(',').map(p => p.trim());
+            const functionBody = functionMatch[3];
+            
+            return this.generateCompletePythonDriver(functionName, params, functionBody);
+        }
+        
+        return code;
+    }
+
+    private generateCompletePythonDriver(functionName: string, params: string[], functionBody: string): string {
+        // Clean function parameters to remove type hints
+        const cleanParams = params.map(p => {
+            if (p.includes(':')) {
+                return p.split(':')[0]?.trim() || p.trim();
             }
-            return line;
+            return p.trim();
         });
-        functionBody = fixedLines.join('\n');
         
-        console.log('🔍 Extracted Python function:', functionName);
-        console.log('🔍 Parameters:', params);
-        console.log('🔍 Function body:', functionBody);
-
-        return `def ${functionName}(${params.join(', ')}):
+        return `def ${functionName}(${cleanParams.join(', ')}):
 ${functionBody}
 
 # Read input from stdin
 import sys
-import json
-input_data = sys.stdin.read().strip()
 
-# Parse input based on parameter types
-${params.map((param, i) => {
-    const paramName = param.trim();
-    // Check if parameter name suggests it's an array OR if it's the first parameter (likely nums)
-    if (paramName.includes('arr') || paramName.includes('list') || paramName.includes('array') || paramName.includes('nums') || i === 0) {
-        return `${paramName} = json.loads(input_data)`;
-    } else {
-        return `${paramName} = int(input_data.split()[${i}])`;
+try:
+    # Read input line
+    input_line = sys.stdin.readline().strip()
+    parts = input_line.split()
+    
+    ${this.generatePythonInputParsing(params)}
+    
+    # Call the function
+    result = ${functionName}(${this.generatePythonFunctionCall(params)})
+    
+    # Format output based on result type
+    if result is None:
+        print("None")
+    elif isinstance(result, list):
+        # For arrays like [0, 1], print each element on a new line
+        for item in result:
+            print(item)
+    elif isinstance(result, bool):
+        print(str(result))
+    elif isinstance(result, (int, float)):
+        print(result)
+    else:
+        print(str(result))
+        
+except Exception as e:
+    print(f"Error: {e}")
+    sys.exit(1)`;
     }
-}).join('\n')}
 
-# Call the function with the input
-result = ${functionName}(${params.map(p => p.trim()).join(', ')})
-# Format output as expected by Judge0 (each element on a new line for arrays)
-if isinstance(result, list):
-    for item in result:
-        print(item)
-else:
-    print(result)`;
+    private generatePythonInputParsing(params: string[]): string {
+        // Extract parameter names without type hints
+        const cleanParams = params.map(p => {
+            // Handle type hints like "nums: List[int]" -> extract "nums"
+            if (p.includes(':')) {
+                return p.split(':')[0]?.trim();
+            }
+            return p.trim();
+        });
+        
+        if (cleanParams.length === 1) {
+            const param = cleanParams[0];
+            if (param && (param.includes('arr') || param.includes('nums'))) {
+                return `${param} = [int(x) for x in parts]`;
+            } else if (param && (param.includes('str') || param.includes('s'))) {
+                return `${param} = parts[0]`;
+            } else if (param) {
+                return `${param} = int(parts[0])`;
+            }
+        } else if (cleanParams.length === 2) {
+            const param1 = cleanParams[0];
+            const param2 = cleanParams[1];
+            
+            if (param1 && (param1.includes('arr') || param1.includes('nums'))) {
+                return `${param1} = [int(x) for x in parts[:-1]]
+    ${param2} = int(parts[-1])`;
+            } else if (param1 && (param1.includes('str') || param1.includes('s'))) {
+                return `${param1} = parts[0]
+    ${param2} = parts[1]`;
+            } else if (param1 && param2) {
+                return `${param1} = int(parts[0])
+    ${param2} = int(parts[1])`;
+            }
+        }
+        
+        // Fallback for any remaining cases
+        return cleanParams.map((param, i) => {
+            if (param && (param.includes('str') || param.includes('s'))) {
+                return `${param} = parts[${i}]`;
+            } else if (param) {
+                return `${param} = int(parts[${i}])`;
+            }
+            return '';
+        }).filter(Boolean).join('\n    ');
+    }
+
+    private generatePythonFunctionCall(params: string[]): string {
+        // Extract parameter names without type hints
+        const cleanParams = params.map(p => {
+            // Handle type hints like "nums: List[int]" -> extract "nums"
+            if (p.includes(':')) {
+                return p.split(':')[0]?.trim() || p.trim();
+            }
+            return p.trim();
+        });
+        return cleanParams.join(', ');
     }
 
     private generateCppDriver(code: string): string {
-        // Extract function definition (excluding main function)
-        const functionMatch = code.match(/(\w+)\s+(\w+)\s*\(([^)]*)\)\s*\{[\s\S]*?\}(?=\s*\n\s*\n|\s*$)/);
+        // First, check if this is a class-based solution
+        if (code.includes('class Solution')) {
+            // Look for class Solution with method - use a simpler approach
+            
+            // First, find the class Solution
+            const classStart = code.indexOf('class Solution');
+            if (classStart === -1) {
+                return code;
+            }
+            
+            // Find the public section
+            const publicStart = code.indexOf('public:', classStart);
+            if (publicStart === -1) {
+                return code;
+            }
+            
+            // Find the method signature after public:
+            const methodSignatureMatch = code.substring(publicStart).match(/(\S+)\s+(\w+)\s*\(([^)]*)\)\s*\{/);
+            
+            if (methodSignatureMatch && methodSignatureMatch[1] && methodSignatureMatch[2] && methodSignatureMatch[3]) {
+                const returnType = methodSignatureMatch[1];
+                const functionName = methodSignatureMatch[2];
+                const params = methodSignatureMatch[3].split(',').map(p => p.trim());
+                
+                // Find the opening brace after the method signature
+                const methodStart = code.indexOf(`{`, publicStart + methodSignatureMatch[0].length - 1);
+                if (methodStart === -1) {
+                    return code;
+                }
+                
+                // Find the closing brace by counting braces
+                let braceCount = 1;
+                let methodEnd = methodStart + 1;
+                for (let i = methodStart + 1; i < code.length; i++) {
+                    if (code[i] === '{') braceCount++;
+                    else if (code[i] === '}') braceCount--;
+                    if (braceCount === 0) {
+                        methodEnd = i;
+                        break;
+                    }
+                }
+                
+                // Extract function body without the closing brace
+                const functionBody = code.substring(methodStart + 1, methodEnd - 1);
+                
+                return this.generateCppDriverCode(returnType, functionName, params, functionBody);
+            }
+            
+            return code;
+        }
         
-        if (!functionMatch) {
-            console.log('⚠️ Could not extract C++ function, using original code');
+        // If not a class, try to extract standalone functions
+        let functionMatch = code.match(/(\S+)\s+(\w+)\s*\(([^)]*)\)\s*\{([\s\S]*)\}/);
+        
+        // Filter out main function and find the first non-main function
+        if (functionMatch && functionMatch[2] === 'main') {
+            // Try to find another function
+            const allMatches = [...code.matchAll(/(\S+)\s+(\w+)\s*\(([^)]*)\)\s*\{([\s\S]*)\}/g)];
+            for (const match of allMatches) {
+                if (match[2] !== 'main') {
+                    functionMatch = match;
+                    break;
+                }
+            }
+        }
+        
+        if (!functionMatch || !functionMatch[1] || !functionMatch[2] || !functionMatch[3] || !functionMatch[4]) {
             return code;
         }
 
         const returnType = functionMatch[1];
         const functionName = functionMatch[2];
-        const params = functionMatch[3] ? functionMatch[3].split(',').map(p => p.trim()) : [];
-        
-        console.log('🔍 Extracted C++ function:', functionName);
-        console.log('🔍 Return type:', returnType);
-        console.log('🔍 Parameters:', params);
+        const params = functionMatch[3].split(',').map(p => p.trim());
+        const functionBody = functionMatch[4];
 
-        // Extract function body
-        const bodyMatch = code.match(new RegExp(`${returnType}\\s+${functionName}\\s*\\([^)]*\\)\\s*\\{([\\s\\S]*?)\\}(?=\\s*\\n\\s*\\n|\\s*$)`));
-        const functionBody = bodyMatch ? bodyMatch[1] : '';
+        return this.generateCppDriverCode(returnType, functionName, params, functionBody);
+    }
 
+    private generateCppDriverCode(returnType: string, functionName: string, params: string[], functionBody: string): string {
         return `#include <iostream>
+#include <vector>
+#include <string>
+#include <sstream>
+#include <unordered_map>
 using namespace std;
 
 ${returnType} ${functionName}(${params.join(', ')}) {
@@ -476,15 +626,93 @@ ${functionBody}
 }
 
 int main() {
-    ${params.map((param, i) => {
-        const paramName = param.split(' ').pop() || `param${i}`;
-        return `int ${paramName}; std::cin >> ${paramName};`;
-    }).join('\n    ')}
+    string input;
+    getline(cin, input);
     
-    ${returnType} result = ${functionName}(${params.map((param, i) => param.split(' ').pop() || `param${i}`).join(', ')});
-    std::cout << result << std::endl;
+    stringstream ss(input);
+    string token;
+    vector<string> tokens;
+    
+    // Parse input tokens
+    while (ss >> token) {
+        tokens.push_back(token);
+    }
+    
+    ${this.generateCppInputParsing(params)}
+    
+    ${returnType} result = ${functionName}(${this.generateCppFunctionCall(params)});
+    
+    // Format output based on result type
+    if (result.empty()) {
+        cout << "No solution found" << endl;
+    } else {
+        // Output each element on a new line for vectors
+        for (int i = 0; i < result.size(); i++) {
+            cout << result[i] << endl;
+        }
+    }
+    
     return 0;
 }`;
+    }
+
+    private generateCppInputParsing(params: string[]): string {
+        if (params.length === 1) {
+            const param = params[0];
+            if (param && param.includes('vector')) {
+                const paramName = param.split(' ').pop() || 'nums';
+                return `vector<int> ${paramName} = vector<int>(tokens.begin(), tokens.end());`;
+            } else if (param && (param.includes('str') || param.includes('s'))) {
+                const paramName = param.split(' ').pop() || 'str';
+                return `string ${paramName} = tokens[0];`;
+            } else if (param) {
+                const paramName = param.split(' ').pop() || 'num';
+                return `int ${paramName} = stoi(tokens[0]);`;
+            }
+        } else if (params.length === 2) {
+            const param1 = params[0];
+            const param2 = params[1];
+            
+            if (param1 && param1.includes('vector')) {
+                const param1Name = param1.split(' ').pop() || 'nums';
+                const param2Name = param2?.split(' ').pop() || 'target';
+                return `vector<int> ${param1Name};
+for (int i = 0; i < tokens.size() - 1; i++) {
+    ${param1Name}.push_back(stoi(tokens[i]));
+}
+int ${param2Name} = stoi(tokens[tokens.size() - 1]);`;
+            } else if (param1 && (param1.includes('str') || param1.includes('s'))) {
+                const param1Name = param1.split(' ').pop() || 'str1';
+                const param2Name = param2?.split(' ').pop() || 'str2';
+                return `string ${param1Name} = tokens[0];
+string ${param2Name} = tokens[1];`;
+            } else if (param1 && param2) {
+                const param1Name = param1.split(' ').pop() || 'num1';
+                const param2Name = param2?.split(' ').pop() || 'num2';
+                return `int ${param1Name} = stoi(tokens[0]);
+int ${param2Name} = stoi(tokens[1]);`;
+            }
+        }
+        return params.map((param, i) => {
+            if (param && param.includes('vector')) {
+                const paramName = param.split(' ').pop() || `nums${i}`;
+                return `vector<int> ${paramName};
+for (int j = 0; j < tokens.size(); j++) {
+    ${paramName}.push_back(stoi(tokens[j]));
+}`;
+            } else if (param && (param.includes('str') || param.includes('s'))) {
+                const paramName = param.split(' ').pop() || `str${i}`;
+                return `string ${paramName} = tokens[${i}];`;
+            } else if (param) {
+                const paramName = param.split(' ').pop() || `num${i}`;
+                return `int ${paramName} = stoi(tokens[${i}]);`;
+            }
+            return '';
+        }).filter(Boolean).join('\n    ');
+    }
+
+    private generateCppFunctionCall(params: string[]): string {
+        return params.map(param => param.split(' ').pop() || 'param').join(', ');
     }
 
     private generateJavaDriver(code: string): string {
@@ -492,7 +720,6 @@ int main() {
         const classMatch = code.match(/public class Solution\s*\{[\s\S]*?\}/);
         
         if (!classMatch) {
-            console.log('⚠️ Could not extract Java Solution class, using original code');
             return code;
         }
 
@@ -500,8 +727,6 @@ int main() {
         const methodMatch = code.match(/public\s+(\w+)\s+(\w+)\s*\(([^)]*)\)\s*\{[\s\S]*?\}/);
         
         if (!methodMatch) {
-            console.log('⚠️ Could not extract Java method, using original code');
-            console.log('🔍 Code to parse:', code);
             return code;
         }
 
@@ -510,25 +735,18 @@ int main() {
         const params = methodMatch[3] ? methodMatch[3].split(',').map(p => p.trim()) : [];
         
         if (!returnType || !methodName) {
-            console.log('⚠️ Could not extract return type or method name, using original code');
             return code;
         }
-        
-        console.log('🔍 Extracted Java method:', methodName);
-        console.log('🔍 Return type:', returnType);
-        console.log('🔍 Parameters:', params);
 
         // Extract the entire method body - use a simpler approach
         const methodStart = code.indexOf(`public ${returnType} ${methodName}(`);
         if (methodStart === -1) {
-            console.log('⚠️ Could not find method start, using original code');
             return code;
         }
         
         // Find the opening brace after the method signature
         const signatureEnd = code.indexOf('{', methodStart);
         if (signatureEnd === -1) {
-            console.log('⚠️ Could not find method opening brace, using original code');
             return code;
         }
         
@@ -607,146 +825,101 @@ ${methodBody}
     
 ${mainMethod}
 }`;
-
-        console.log('🔍 Generated Java code:');
-        console.log('```java');
-        console.log(generatedCode);
-        console.log('```');
         
         return generatedCode;
     }
 
     private async runTestCaseWithJudge0(submission: SubmissionMessage, testCase: any): Promise<ExecutionResult> {
         try {
-            console.log('📝 Original Code Received:')
-            console.log('```')
-            console.log(submission.code)
-            console.log('```')
-            
             const languageId = this.judge0Service.getLanguageId(submission.lang)
             
             // Prepare input data from test case
             let stdin = ''
-            
-            console.log('🧪 Test Case Details:')
-            console.log(`   Test Case: ${JSON.stringify(testCase, null, 2)}`)
             
             // Handle test case inputs based on the schema
             if (testCase.testCaseInputs && testCase.testCaseInputs.length > 0) {
                 // Sort by position and extract values
                 const sortedInputs = testCase.testCaseInputs.sort((a: any, b: any) => a.position - b.position);
                 
-                // Check if any parameter is an array
-                const hasArrayParam = sortedInputs.some((input: any) => Array.isArray(input.value));
-                
-                if (hasArrayParam) {
-                    // For array parameters, send JSON
-                    stdin = JSON.stringify(sortedInputs[0].value);
+                // Format input based on the problem type
+                // For Two Sum: first input is nums array, second is target
+                if (sortedInputs.length === 2 && Array.isArray(sortedInputs[0].value)) {
+                    // Two Sum format: [nums_array, target]
+                    const numsArray = sortedInputs[0].value;
+                    const target = sortedInputs[1].value;
+                    // Send as: "nums_array target" (space-separated)
+                    stdin = `${numsArray.join(' ')} ${target}`;
                 } else {
-                    // For simple parameters, use space separator
-                    const separator = ' ';
+                    // General case: space-separated values
                     stdin = sortedInputs
                         .map((input: any) => {
-                            // Handle different value types
                             if (typeof input.value === 'string') {
                                 return input.value;
                             } else if (typeof input.value === 'number') {
                                 return input.value.toString();
+                            } else if (Array.isArray(input.value)) {
+                                return input.value.join(' ');
                             } else {
-                                return JSON.stringify(input.value);
+                                return input.value.toString();
                             }
                         })
-                        .join(separator);
+                        .join(' ');
                 }
             } else if (testCase.inputs) {
                 // Fallback to the inputs field if testCaseInputs is not available
                 if (typeof testCase.inputs === 'string') {
-                    stdin = testCase.inputs
+                    stdin = testCase.inputs;
                 } else if (Array.isArray(testCase.inputs)) {
-                    // Use space separator for both JavaScript and Python
-                    const separator = ' '
-                    stdin = testCase.inputs.join(separator)
+                    stdin = testCase.inputs.join(' ');
+                } else if (typeof testCase.inputs === 'object' && testCase.inputs !== null) {
+                    stdin = Object.values(testCase.inputs).join(' ');
                 } else {
-                    stdin = JSON.stringify(testCase.inputs)
+                    stdin = testCase.inputs.toString();
                 }
             }
 
             // Prepare expected output
-            let expectedOutput = ''
+            let expectedOutput = '';
             if (testCase.expected !== undefined && testCase.expected !== null) {
                 if (typeof testCase.expected === 'string') {
-                    expectedOutput = testCase.expected
+                    expectedOutput = testCase.expected;
                 } else if (typeof testCase.expected === 'number') {
-                    expectedOutput = testCase.expected.toString()
+                    expectedOutput = testCase.expected.toString();
                 } else if (Array.isArray(testCase.expected)) {
-                    expectedOutput = testCase.expected.join('\n')
+                    // For arrays like [0,1], format to match code output
+                    // All languages now output arrays with each element on a new line for consistency
+                    expectedOutput = testCase.expected.join('\n');
                 } else {
-                    expectedOutput = JSON.stringify(testCase.expected)
+                    expectedOutput = JSON.stringify(testCase.expected);
                 }
             }
 
-            // Submit to Judge0
-            console.log('🔍 Language detected:', submission.lang);
-            console.log('🔍 Language lowercase:', submission.lang.toLowerCase());
-            const modifiedCode = this.modifyCodeForTestCases(submission.code, submission.lang, testCase.testCaseInputs)
+            const modifiedCode = this.modifyCodeForTestCases(submission.code, submission.lang, testCase.testCaseInputs || [])
             
-            console.log('🔧 Generated Code for Execution:')
-            console.log('```')
-            console.log(modifiedCode)
-            console.log('```')
+            // Remove expected_output to avoid 422 errors - we'll compare manually
+            // Ensure languageId is a number
+            const numericLanguageId = Number(languageId)
+            if (isNaN(numericLanguageId)) {
+                throw new Error(`Invalid language ID: ${languageId}`)
+            }
             
             const judge0Submission: Judge0Submission = {
                 source_code: modifiedCode,
-                language_id: languageId,
+                language_id: numericLanguageId,
                 stdin: stdin,
-                expected_output: expectedOutput,
+                // expected_output: expectedOutput, // Removed - causes 422 errors with Judge0 Extra CE
                 cpu_time_limit: 5, // 5 seconds
                 memory_limit: 512000 // 512MB
             }
 
-            console.log('📤 Judge0 submission:', {
-                languageId,
-                stdin,
-                expectedOutput,
-                codeLength: modifiedCode.length
-            })
-
-            console.log('🔄 Submitting to Judge0...')
             let result: any
             try {
                 const token = await this.judge0Service.submitCode(judge0Submission)
-                console.log('✅ Judge0 submission successful, token:', token)
                 
                 // Wait for result
-                console.log('⏳ Waiting for Judge0 result...')
                 result = await this.judge0Service.waitForResult(token)
-                console.log('✅ Judge0 result received')
             } catch (error) {
-                console.error('❌ Judge0 error:', error)
                 throw error
-            }
-            
-            console.log('📥 Judge0 result:', {
-                statusId: result.status.id,
-                statusDescription: result.status.description,
-                stdout: result.stdout,
-                stderr: result.stderr,
-                compileOutput: result.compile_output
-            })
-
-            // Add detailed comparison logging
-            console.log('🔍 Result Analysis:')
-            console.log(`   Expected Output: "${expectedOutput}"`)
-            console.log(`   Actual Output: "${result.stdout}"`)
-            console.log(`   Output Match: ${result.stdout?.trim() === expectedOutput}`)
-            console.log(`   Status: ${result.status.description} (ID: ${result.status.id})`)
-            
-            if (result.stderr) {
-                console.log(`   Error Output: ${result.stderr}`)
-            }
-            
-            if (result.compile_output) {
-                console.log(`   Compile Output: ${result.compile_output}`)
             }
             
             const judge0Status = this.judge0Service.getStatusFromJudge0(result.status.id)
@@ -797,6 +970,12 @@ ${mainMethod}
     }
 
     private async saveSubmission(submission: SubmissionMessage, result: ExecutionResult, runtime: number) {
+        // Skip saving in development mode
+        if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'dev') {
+            console.log('🔄 Development mode: Skipping database submission save')
+            return
+        }
+        
         try {
             await prisma.submission.create({
                 data: {
@@ -809,8 +988,10 @@ ${mainMethod}
                     runtime: runtime
                 }
             })
+            console.log('✅ Submission saved to database successfully')
         } catch (error) {
             console.error('Failed to save submission to database:', error)
+            // Don't throw error to avoid breaking the submission flow
         }
     }
 

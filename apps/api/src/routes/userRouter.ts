@@ -3,7 +3,6 @@ import { Request, Response, Router} from 'express'
 
 export const userRouter = Router()
 
-// Middleware to validate user ID from request
 const validateUserId = (req: Request, res: Response, next: Function) => {
     const userId = req.query.userId || req.body.userId;
     if (!userId || typeof userId !== 'string') {

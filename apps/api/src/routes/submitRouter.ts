@@ -33,8 +33,11 @@ submitRouter.post('/run', async (req: Request, res: Response) => {
         res.status(401).json({success: false, message: 'Unauthorized - User not found'})
         return
     }
-
-    const data: questionSubmission = req.body
+    
+    const data: questionSubmission = {
+        ...req.body,
+        userId: userId
+    };
     const parseResult = parsedQuestionSubmission.safeParse(data)
     
     if (!parseResult.success) {
@@ -111,8 +114,11 @@ submitRouter.post('/submit', async (req: Request, res: Response) => {
         res.status(401).json({success: false, message: 'Unauthorized - User not found'})
         return
     }
-
-    const data: questionSubmission = req.body
+    
+    const data: questionSubmission = {
+        ...req.body,
+        userId: userId
+    };
     const parseResult = parsedQuestionSubmission.safeParse(data)
     
     if (!parseResult.success) {

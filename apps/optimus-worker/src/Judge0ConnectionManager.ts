@@ -50,7 +50,7 @@ export class Judge0ConnectionManager {
         apiKey: process.env.JUDGE0_SELF_HOSTED_KEY || ''
     }
 
-    private currentProvider: Judge0Provider = Judge0Provider.SELF_HOSTED
+    private currentProvider: Judge0Provider = Judge0Provider.RAPIDAPI
     private isRapidApiQuotaExceeded = false
 
     constructor() {
@@ -64,21 +64,21 @@ export class Judge0ConnectionManager {
     }
 
     public getLanguageId(lang: string): number {
-        // IDs aligned to official Judge0 CE v1.13.x (from /languages)
+        // Language IDs for Judge0 Extra CE (Community Edition)
         switch (lang.toLowerCase()) {
             case 'javascript':
             case 'js':
-                return 63 // JavaScript (Node.js 12.14.0)
+                return 63 // JavaScript (Node.js 18.15.0) - Judge0 Extra CE
             case 'python':
             case 'py':
-                return 71 // Python (3.8.1)
+                return 71 // Python (3.11.4) - Judge0 Extra CE
             case 'cpp':
             case 'c++':
-                return 54 // C++ (GCC 9.2.0)
+                return 54 // C++ (GCC 11.2.0) - Judge0 Extra CE
             case 'java':
-                return 62 // Java (OpenJDK 13.0.1)
+                return 62 // Java (OpenJDK 17.0.6) - Judge0 Extra CE
             case 'c':
-                return 50 // C (GCC 9.2.0)
+                return 50 // C (GCC 11.2.0) - Judge0 Extra CE
             default:
                 throw new Error(`Unsupported language: ${lang}`)
         }
@@ -146,14 +146,21 @@ export class Judge0ConnectionManager {
     }
 
     private async submitToSelfHosted(submission: Judge0Submission): Promise<string> {
+        // For self-hosted Judge0, encode the source code in base64 to avoid UTF-8 issues
+        const encodedSubmission = {
+            ...submission,
+            source_code: Buffer.from(submission.source_code, 'utf-8').toString('base64'),
+            stdin: submission.stdin ? Buffer.from(submission.stdin, 'utf-8').toString('base64') : undefined
+        }
+        
         const options = {
             method: 'POST',
-            url: `${this.selfHostedConfig.baseUrl}/submissions`,
+            url: `${this.selfHostedConfig.baseUrl}/submissions?base64_encoded=true`,
             headers: {
                 'Content-Type': 'application/json',
                 ...(this.selfHostedConfig.apiKey && { 'Authorization': `Bearer ${this.selfHostedConfig.apiKey}` })
             },
-            data: submission
+            data: encodedSubmission
         }
 
         console.log('🌐 Submitting to self-hosted Judge0...')
@@ -179,14 +186,39 @@ export class Judge0ConnectionManager {
     private async getResultFromSelfHosted(token: string): Promise<Judge0Response> {
         const options = {
             method: 'GET',
-            url: `${this.selfHostedConfig.baseUrl}/submissions/${token}`,
+            url: `${this.selfHostedConfig.baseUrl}/submissions/${token}?base64_encoded=true`,
             headers: {
                 ...(this.selfHostedConfig.apiKey && { 'Authorization': `Bearer ${this.selfHostedConfig.apiKey}` })
             }
         }
 
         const response = await axios.request(options)
-        return response.data
+        
+        // Decode base64 encoded fields if they exist
+        const data = response.data
+        if (data.stdout && typeof data.stdout === 'string') {
+            try {
+                data.stdout = Buffer.from(data.stdout, 'base64').toString('utf-8')
+            } catch (e) {
+                console.log('⚠️ Could not decode stdout from base64, using as-is')
+            }
+        }
+        if (data.stderr && typeof data.stderr === 'string') {
+            try {
+                data.stderr = Buffer.from(data.stderr, 'base64').toString('utf-8')
+            } catch (e) {
+                console.log('⚠️ Could not decode stderr from base64, using as-is')
+            }
+        }
+        if (data.compile_output && typeof data.compile_output === 'string') {
+            try {
+                data.compile_output = Buffer.from(data.compile_output, 'base64').toString('utf-8')
+            } catch (e) {
+                console.log('⚠️ Could not decode compile_output from base64, using as-is')
+            }
+        }
+        
+        return data
     }
 
     async waitForResult(token: string, maxWaitTime: number = 30000): Promise<Judge0Response> {
