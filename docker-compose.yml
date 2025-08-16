@@ -38,25 +38,22 @@ services:
       context: .
       dockerfile: Dockerfile
       target: worker-runner
+    network_mode: host
     environment:
       - NODE_ENV=production
       - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=redis://redis:6379
-      - REDIS_HOST=redis
+      - REDIS_URL=redis://localhost:6379
+      - REDIS_HOST=localhost
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - JUDGE0_RAPIDAPI_URL=${JUDGE0_RAPIDAPI_URL}
       - JUDGE0_RAPIDAPI_KEY=${JUDGE0_RAPIDAPI_KEY}
-      - JUDGE0_SELF_HOSTED_URL=http://host.docker.internal:2358
+      - JUDGE0_SELF_HOSTED_URL=http://localhost:2358
       - JUDGE0_SELF_HOSTED_KEY=${JUDGE0_SELF_HOSTED_KEY}
     depends_on:
       redis:
         condition: service_healthy
     restart: unless-stopped
-    networks:
-      - codequest-network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     volumes:
       - ./logs/worker:/app/logs
 

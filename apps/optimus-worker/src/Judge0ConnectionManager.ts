@@ -3,6 +3,18 @@ import dotenv from 'dotenv'
 
 dotenv.config()
 
+/**
+ * Judge0 Connection Manager
+ * 
+ * Configuration:
+ * - JUDGE0_SELF_HOSTED_URL: Your self-hosted Judge0 server URL (e.g., http://your-server:2358)
+ * - JUDGE0_SELF_HOSTED_KEY: Your self-hosted Judge0 API key (if required)
+ * - JUDGE0_RAPIDAPI_URL: RapidAPI Judge0 URL (fallback only)
+ * - JUDGE0_API_KEY: RapidAPI key (fallback only)
+ * 
+ * This manager prioritizes self-hosted Judge0 and only falls back to RapidAPI if self-hosted fails.
+ */
+
 export enum Status {
     AC = 'AC',
     WA = 'WA',
@@ -46,17 +58,21 @@ export class Judge0ConnectionManager {
     }
 
     private selfHostedConfig = {
-        baseUrl: process.env.JUDGE0_SELF_HOSTED_URL || 'http://judge0:2358',
+        baseUrl: process.env.JUDGE0_SELF_HOSTED_URL || 'http://localhost:2358',
         apiKey: process.env.JUDGE0_SELF_HOSTED_KEY || ''
     }
 
-    private currentProvider: Judge0Provider = Judge0Provider.RAPIDAPI
-    private isRapidApiQuotaExceeded = false
+    private currentProvider: Judge0Provider = Judge0Provider.SELF_HOSTED
+    private isRapidApiQuotaExceeded = true
 
     constructor() {
+        // Always use self-hosted Judge0 as primary, RapidAPI as fallback
+        this.currentProvider = Judge0Provider.SELF_HOSTED
+        this.isRapidApiQuotaExceeded = true
+        
         console.log('🔧 Judge0 Connection Manager initialized')
         console.log(`📡 Primary provider: ${this.currentProvider}`)
-        console.log(`🔄 Fallback provider: ${Judge0Provider.SELF_HOSTED}`)
+        console.log(`🔄 Fallback provider: ${Judge0Provider.RAPIDAPI}`)
         console.log(`🔄 RapidAPI base URL: ${this.rapidApiConfig.baseUrl}`)
         console.log(`🔄 RapidAPI API Key: ${this.rapidApiConfig.apiKey ? '***' + this.rapidApiConfig.apiKey.slice(-4) : 'Not set'}`)
         console.log(`🔄 Self-hosted base URL: ${this.selfHostedConfig.baseUrl}`)
@@ -115,29 +131,31 @@ export class Judge0ConnectionManager {
 
     async submitCode(submission: Judge0Submission): Promise<string> {
         try {
-            if (this.currentProvider === Judge0Provider.RAPIDAPI && !this.isRapidApiQuotaExceeded) {
-                return await this.submitToRapidAPI(submission)
-            } else {
-                return await this.submitToSelfHosted(submission)
-            }
+            // Always try self-hosted first, fallback to RapidAPI only if self-hosted fails
+            return await this.submitToSelfHosted(submission)
         } catch (error: any) {
-            // If RapidAPI fails due to quota, switch to self-hosted
-            if (this.currentProvider === Judge0Provider.RAPIDAPI && 
-                error.response?.data?.message?.includes('quota')) {
-                console.log('⚠️ RapidAPI quota exceeded, switching to self-hosted Judge0')
-                this.isRapidApiQuotaExceeded = true
-                this.currentProvider = Judge0Provider.SELF_HOSTED
-                return await this.submitToSelfHosted(submission)
+            console.log('⚠️ Self-hosted Judge0 failed, trying RapidAPI as fallback...')
+            try {
+                return await this.submitToRapidAPI(submission)
+            } catch (rapidApiError: any) {
+                console.error('❌ Both self-hosted and RapidAPI failed')
+                throw error // Throw the original self-hosted error
             }
-            throw error
         }
     }
 
     async getSubmissionResult(token: string): Promise<Judge0Response> {
-        if (this.currentProvider === Judge0Provider.RAPIDAPI && !this.isRapidApiQuotaExceeded) {
-            return await this.getResultFromRapidAPI(token)
-        } else {
+        // Always try self-hosted first, fallback to RapidAPI only if self-hosted fails
+        try {
             return await this.getResultFromSelfHosted(token)
+        } catch (error: any) {
+            console.log('⚠️ Self-hosted Judge0 failed, trying RapidAPI as fallback...')
+            try {
+                return await this.getResultFromRapidAPI(token)
+            } catch (rapidApiError: any) {
+                console.error('❌ Both self-hosted and RapidAPI failed')
+                throw error // Throw the original self-hosted error
+            }
         }
     }
 
@@ -266,7 +284,17 @@ export class Judge0ConnectionManager {
     // Method to manually switch providers (useful for testing)
     public switchProvider(provider: Judge0Provider): void {
         this.currentProvider = provider
+        if (provider === Judge0Provider.SELF_HOSTED) {
+            this.isRapidApiQuotaExceeded = true
+        }
         console.log(`🔄 Switched to provider: ${provider}`)
+    }
+
+    // Method to force self-hosted Judge0 (useful for production)
+    public forceSelfHosted(): void {
+        this.currentProvider = Judge0Provider.SELF_HOSTED
+        this.isRapidApiQuotaExceeded = true
+        console.log('🔒 Forced to use self-hosted Judge0')
     }
 
     // Method to get current provider status
