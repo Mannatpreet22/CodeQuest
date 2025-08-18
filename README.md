@@ -4,7 +4,8 @@ A microservices-based backend for a competitive programming platform with real-t
 
 ## 🏗️ Architecture Overview
 
-https://drive.google.com/file/d/1-mAfm4Cl8BIpkyzYAnvEJPvbZowYyJmT/view
+<img width="1437" height="560" alt="Screenshot 2025-08-18 at 2 23 31 AM" src="https://github.com/user-attachments/assets/875765d6-395e-4114-9e22-25755a27ad8e" />
+
 
 ## 🔄 Request Flow
 
