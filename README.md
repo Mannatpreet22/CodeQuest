@@ -4,24 +4,7 @@ A microservices-based backend for a competitive programming platform with real-t
 
 ## 🏗️ Architecture Overview
 
-```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   Frontend  │───▶│  API Server │───▶│ Redis Queue │───▶│   Worker    │
-│             │    │   (Port 3000)│    │             │    │             │
-└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
-                           │                   │                   │
-                           │                   │                   ▼
-                           │                   │            ┌─────────────┐
-                           │                   │            │   Judge0    │
-                           │                   │            │   API       │
-                           │                   │            └─────────────┘
-                           │                   │                   │
-                           ▼                   ▼                   │
-                    ┌─────────────┐    ┌─────────────┐            │
-                    │ PostgreSQL  │    │ Redis Pub/Sub│◀───────────┘
-                    │   Database  │    │             │
-                    └─────────────┘    └─────────────┘
-```
+https://drive.google.com/file/d/1-mAfm4Cl8BIpkyzYAnvEJPvbZowYyJmT/view
 
 ## 🔄 Request Flow
 
