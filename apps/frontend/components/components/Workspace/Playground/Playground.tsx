@@ -135,7 +135,7 @@ const Playground: React.FC<PlaygroundProps> = ({ problem, pid, setSuccess, setSo
 			
 			// Add client-side timeout as backup
 			const timeoutPromise = new Promise((_, reject) => {
-				setTimeout(() => reject(new Error('Client timeout')), 12000) // 12 seconds (2 seconds more than axios timeout)
+				setTimeout(() => reject(new Error('Client timeout')), 30000) // 30 seconds (2 seconds more than axios timeout)
 			})
 			
 			const result = await Promise.race([

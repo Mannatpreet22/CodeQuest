@@ -16,201 +16,7 @@ async function main() {
 
   console.log('🧹 Cleared existing data')
 
-  // Question 1: Check Even or Odd
-  const evenOddQuestion = await prisma.question.create({
-    data: {
-      title: 'Check Even or Odd',
-      difficulty: 'Easy',
-      body: `Given an integer, determine if it is even or odd.
 
-Write a function that takes a number as input and returns "Even" if the number is even, or "Odd" if the number is odd.
-
-This problem introduces conditional logic and the modulo operator, which is fundamental in programming.
-
-Constraints:
-- -1000 <= number <= 1000
-- The input is always an integer
-- Zero (0) is considered even
-- Negative numbers can be either even or odd
-
-Follow-up: Can you solve this without using the modulo operator?`
-    }
-  })
-
-  // Test cases for Check Even or Odd
-  const evenOddTestCases = [
-    // Visible test cases (users can see these)
-    {
-      inputs: { num: 4 },
-      expected: "Even",
-      isVisible: true,
-      testCaseInputs: [
-        { position: 0, name: 'num', value: 4 }
-      ]
-    },
-    {
-      inputs: { num: 7 },
-      expected: "Odd",
-      isVisible: true,
-      testCaseInputs: [
-        { position: 0, name: 'num', value: 7 }
-      ]
-    },
-    // Hidden test cases (only executed during submission)
-    {
-      inputs: { num: 0 },
-      expected: "Even",
-      isVisible: false,
-      testCaseInputs: [
-        { position: 0, name: 'num', value: 0 }
-      ]
-    },
-    {
-      inputs: { num: -3 },
-      expected: "Odd",
-      isVisible: false,
-      testCaseInputs: [
-        { position: 0, name: 'num', value: -3 }
-      ]
-    },
-    {
-      inputs: { num: 1000 },
-      expected: "Even",
-      isVisible: false,
-      testCaseInputs: [
-        { position: 0, name: 'num', value: 1000 }
-      ]
-    },
-    {
-      inputs: { num: -1000 },
-      expected: "Even",
-      isVisible: false,
-      testCaseInputs: [
-        { position: 0, name: 'num', value: -1000 }
-      ]
-    },
-    {
-      inputs: { num: 1 },
-      expected: "Odd",
-      isVisible: false,
-      testCaseInputs: [
-        { position: 0, name: 'num', value: 1 }
-      ]
-    },
-    {
-      inputs: { num: -1 },
-      expected: "Odd",
-      isVisible: false,
-      testCaseInputs: [
-        { position: 0, name: 'num', value: -1 }
-      ]
-    },
-    {
-      inputs: { num: 999 },
-      expected: "Odd",
-      isVisible: false,
-      testCaseInputs: [
-        { position: 0, name: 'num', value: 999 }
-      ]
-    },
-    {
-      inputs: { num: -999 },
-      expected: "Odd",
-      isVisible: false,
-      testCaseInputs: [
-        { position: 0, name: 'num', value: -999 }
-      ]
-    }
-  ]
-
-  for (const testCase of evenOddTestCases) {
-    const createdTestCase = await prisma.testCase.create({
-      data: {
-        inputs: testCase.inputs,
-        expected: testCase.expected,
-        isVisible: testCase.isVisible,
-        questionId: evenOddQuestion.id
-      }
-    })
-
-    for (const input of testCase.testCaseInputs) {
-      await prisma.testCaseInput.create({
-        data: {
-          testCaseId: createdTestCase.id,
-          position: input.position,
-          name: input.name,
-          value: input.value
-        }
-      })
-    }
-  }
-
-  // Examples for Check Even or Odd
-  await prisma.example.createMany({
-    data: [
-      {
-        questionId: evenOddQuestion.id,
-        inputData: '4',
-        outputData: '"Even"',
-        explanation: '4 is divisible by 2 (4 % 2 == 0), so it is even'
-      },
-      {
-        questionId: evenOddQuestion.id,
-        inputData: '7',
-        outputData: '"Odd"',
-        explanation: '7 is not divisible by 2 (7 % 2 == 1), so it is odd'
-      },
-      {
-        questionId: evenOddQuestion.id,
-        inputData: '0',
-        outputData: '"Even"',
-        explanation: '0 is divisible by 2 (0 % 2 == 0), so it is even'
-      },
-      {
-        questionId: evenOddQuestion.id,
-        inputData: '-3',
-        outputData: '"Odd"',
-        explanation: '-3 is not divisible by 2 (-3 % 2 == -1), so it is odd'
-      }
-    ]
-  })
-
-  // Template codes for Check Even or Odd
-  await prisma.templateCode.createMany({
-    data: [
-      {
-        questionId: evenOddQuestion.id,
-        programmingLanguageId: 'javascript',
-        driverCode: `function checkEvenOrOdd(num) {
-    // Your code here
-    // Return "Even" if the number is even, "Odd" if it's odd
-    return "";
-}`
-      },
-      {
-        questionId: evenOddQuestion.id,
-        programmingLanguageId: 'python',
-        driverCode: `def check_even_or_odd(num):
-    # Your code here
-    # Return "Even" if the number is even, "Odd" if it's odd
-    return ""`
-      },
-      {
-        questionId: evenOddQuestion.id,
-        programmingLanguageId: 'cpp',
-        driverCode: `#include <string>
-using namespace std;
-
-string checkEvenOrOdd(int num) {
-    // Your code here
-    // Return "Even" if the number is even, "Odd" if it's odd
-    return "";
-}`
-      }
-    ]
-  })
-
-  console.log('🔢 Created Check Even or Odd question')
 
   // Question 2: Sum of Two Numbers
   const sumQuestion = await prisma.question.create({
@@ -832,12 +638,12 @@ Follow-up: Can you come up with an algorithm that is less than O(n²) time compl
       ]
     },
     {
-      inputs: { nums: [50, 25, 75, 100, 125, 150], target: 200 },
-      expected: [3, 5],
+      inputs: { nums: [50, 25, 75, 100, 125, 150], target: 150 },
+      expected: [0, 3],
       isVisible: false,
       testCaseInputs: [
         { position: 0, name: 'nums', value: [50, 25, 75, 100, 125, 150] },
-        { position: 1, name: 'target', value: 200 }
+        { position: 1, name: 'target', value: 150 }
       ]
     }
   ]
@@ -1533,6 +1339,22 @@ Follow-up: Can you solve this in O(n) time complexity?`
       testCaseInputs: [
         { position: 0, name: 's', value: "dvdf" }
       ]
+    },
+    {
+      inputs: { s: "au" },
+      expected: 2,
+      isVisible: false,
+      testCaseInputs: [
+        { position: 0, name: 's', value: "au" }
+      ]
+    },
+    {
+      inputs: { s: "cdd" },
+      expected: 2,
+      isVisible: false,
+      testCaseInputs: [
+        { position: 0, name: 's', value: "cdd" }
+      ]
     }
   ]
 
@@ -1565,19 +1387,19 @@ Follow-up: Can you solve this in O(n) time complexity?`
         questionId: longestSubstringQuestion.id,
         inputData: '"abcabcbb"',
         outputData: '3',
-        explanation: 'The answer is "abc", with the length of 3'
+        explanation: 'The answer is 3, representing the length of the longest substring without repeating characters (e.g., "abc", "bca", "cab")'
       },
       {
         questionId: longestSubstringQuestion.id,
         inputData: '"bbbbb"',
         outputData: '1',
-        explanation: 'The answer is "b", with the length of 1'
+        explanation: 'The answer is 1, representing the length of the longest substring without repeating characters (e.g., "b")'
       },
       {
         questionId: longestSubstringQuestion.id,
         inputData: '"pwwkew"',
         outputData: '3',
-        explanation: 'The answer is "wke", with the length of 3'
+        explanation: 'The answer is 3, representing the length of the longest substring without repeating characters (e.g., "wke")'
       }
     ]
   })

@@ -4,6 +4,9 @@ import prisma from '@repo/db/client';
 
 export const webhookRouter = Router();
 
+// In-memory store for webhook deduplication (in production, use Redis)
+const processedWebhooks = new Set<string>();
+
 // Helper function to extract user data from different auth providers
 function extractUserData(data: any) {
   console.log('🔍 Extracting user data from webhook payload...');
@@ -54,78 +57,101 @@ function extractUserData(data: any) {
   };
 }
 
-// LOCAL DEVELOPMENT: Commented out Clerk webhook for testing
-// webhookRouter.post('/clerk', async (req: Request, res: Response) => {
-//   const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
+// Health check endpoint for webhook monitoring
+webhookRouter.get('/health', (req: Request, res: Response) => {
+  res.status(200).json({
+    status: 'healthy',
+    processedWebhooks: processedWebhooks.size,
+    timestamp: new Date().toISOString()
+  });
+});
 
-//   if (!WEBHOOK_SECRET) {
-//     console.error('❌ CLERK_WEBHOOK_SECRET is not set');
-//     return res.status(500).json({ error: 'Webhook secret not configured' });
-//   }
-
-//   // Get the headers
-//   const svix_id = req.headers['svix-id'] as string;
-//   const svix_timestamp = req.headers['svix-timestamp'] as string;
-//   const svix_signature = req.headers['svix-signature'] as string;
-
-//   // If there are no headers, error out
-//   if (!svix_id || !svix_timestamp || !svix_signature) {
-//     return res.status(400).json({ error: 'Missing svix headers' });
-//     return;
-//   }
-
-//   // Get the body (raw buffer from express.raw middleware)
-//   const payload = req.body.toString();
-
-//   // Create a new Svix instance with your webhook secret
-//   const wh = new Webhook(WEBHOOK_SECRET);
-
-//   let evt: any;
-
-//   // Verify the payload
-//   try {
-//     evt = wh.verify(payload, {
-//       'svix-id': svix_id,
-//       'svix-timestamp': svix_timestamp,
-//       'svix-signature': svix_signature,
-//     });
-//   } catch (err) {
-//     console.error('❌ Webhook verification failed:', err);
-//     return res.status(400).json({ error: 'Webhook verification failed' });
-//     return;
-//   }
-
-//   // Handle the webhook
-//   const { type, data } = evt;
-//   console.log(`🔔 Received webhook: ${type}`);
-
-//   try {
-//     switch (type) {
-//       case 'user.created':
-//         await handleUserCreated(data);
-//         break;
-//       case 'user.updated':
-//         await handleUserUpdated(data);
-//         break;
-//       case 'user.deleted':
-//         await handleUserDeleted(data);
-//         break;
-//       default:
-//         console.log(`⚠️  Unhandled webhook type: ${type}`);
-//     }
-
-//     res.status(200).json({ success: true });
-//   } catch (error) {
-//     console.error(`❌ Error handling webhook ${type}:`, error);
-//     res.status(500).json({ error: 'Internal server error' });
-//     return;
-//   }
-// });
-
-// LOCAL DEVELOPMENT: Dummy webhook endpoint that always succeeds
+// Production webhook handler for Clerk
 webhookRouter.post('/clerk', async (req: Request, res: Response) => {
-  console.log('🔔 LOCAL DEV: Clerk webhook endpoint called (auth disabled)');
-  res.status(200).json({ success: true, message: 'Local development mode - auth disabled' });
+  const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
+
+  if (!WEBHOOK_SECRET) {
+    console.error('❌ CLERK_WEBHOOK_SECRET is not set');
+    return res.status(500).json({ error: 'Webhook secret not configured' });
+  }
+
+  // Get the headers
+  const svix_id = req.headers['svix-id'] as string;
+  const svix_timestamp = req.headers['svix-timestamp'] as string;
+  const svix_signature = req.headers['svix-signature'] as string;
+
+  // If there are no headers, error out
+  if (!svix_id || !svix_timestamp || !svix_signature) {
+    console.error('❌ Missing svix headers');
+    return res.status(400).json({ error: 'Missing svix headers' });
+  }
+
+  // Check for duplicate webhook (deduplication)
+  const webhookId = `${svix_id}-${svix_timestamp}`;
+  if (processedWebhooks.has(webhookId)) {
+    console.log(`🔄 Duplicate webhook detected: ${svix_id}, skipping...`);
+    return res.status(200).json({ success: true, message: 'Webhook already processed' });
+  }
+
+  console.log(`🔔 Processing new webhook: ${svix_id} at ${svix_timestamp}`);
+
+  // Get the body (raw buffer from express.raw middleware)
+  const payload = req.body.toString();
+
+  // Create a new Svix instance with your webhook secret
+  const wh = new Webhook(WEBHOOK_SECRET);
+
+  let evt: any;
+
+  // Verify the payload
+  try {
+    evt = wh.verify(payload, {
+      'svix-id': svix_id,
+      'svix-timestamp': svix_timestamp,
+      'svix-signature': svix_signature,
+    });
+    console.log(`✅ Webhook verification successful for: ${svix_id}`);
+  } catch (err) {
+    console.error('❌ Webhook verification failed:', err);
+    return res.status(400).json({ error: 'Webhook verification failed' });
+  }
+
+  // Mark webhook as processed
+  processedWebhooks.add(webhookId);
+  
+  // Clean up old webhook IDs (keep only last 1000 to prevent memory leaks)
+  if (processedWebhooks.size > 1000) {
+    const webhookArray = Array.from(processedWebhooks);
+    processedWebhooks.clear();
+    webhookArray.slice(-500).forEach(id => processedWebhooks.add(id));
+    console.log('🧹 Cleaned up old webhook IDs, current count:', processedWebhooks.size);
+  }
+
+  // Handle the webhook
+  const { type, data } = evt;
+  console.log(`🔔 Processing webhook: ${type} for user: ${data.id}`);
+
+  try {
+    switch (type) {
+      case 'user.created':
+        await handleUserCreated(data);
+        break;
+      case 'user.updated':
+        await handleUserUpdated(data);
+        break;
+      case 'user.deleted':
+        await handleUserDeleted(data);
+        break;
+      default:
+        console.log(`⚠️  Unhandled webhook type: ${type}`);
+    }
+
+    console.log(`✅ Webhook ${svix_id} processed successfully`);
+    res.status(200).json({ success: true, message: 'Webhook processed successfully' });
+  } catch (error) {
+    console.error(`❌ Error handling webhook ${type}:`, error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // Handler for user.created event
@@ -134,6 +160,7 @@ async function handleUserCreated(data: any) {
   
   const userData = extractUserData(data);
   if (!userData) {
+    console.error('❌ Failed to extract user data for user:', data.id);
     return;
   }
 
@@ -148,7 +175,8 @@ async function handleUserCreated(data: any) {
       console.log('⚠️  User already exists:', data.id);
     } else {
       console.error('❌ Failed to create user:', error);
-      throw error;
+      // Don't throw error to prevent webhook failure
+      console.error('❌ User creation failed for:', data.id, 'Error:', error.message);
     }
   }
 }
@@ -159,6 +187,7 @@ async function handleUserUpdated(data: any) {
   
   const userData = extractUserData(data);
   if (!userData) {
+    console.error('❌ Failed to extract user data for user:', data.id);
     return;
   }
 
@@ -170,9 +199,10 @@ async function handleUserUpdated(data: any) {
     });
 
     console.log('✅ User updated successfully:', user.id);
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Failed to update user:', error);
-    throw error;
+    console.error('❌ User update failed for:', data.id, 'Error:', error.message);
+    // Don't throw error to prevent webhook failure
   }
 }
 
@@ -191,7 +221,8 @@ async function handleUserDeleted(data: any) {
       console.log('⚠️  User not found for deletion:', data.id);
     } else {
       console.error('❌ Failed to delete user:', error);
-      throw error;
+      console.error('❌ User deletion failed for:', data.id, 'Error:', error.message);
+      // Don't throw error to prevent webhook failure
     }
   }
 }
